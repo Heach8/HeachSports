@@ -9,9 +9,9 @@ export default function ConsoleList() {
 
   useEffect(() => {
     api('/sports').then(async d => {
+      const results = await Promise.all(d.sports.map(s => api(`/fixtures?sport=${s.key}`).then(f => ({ s, f }))));
       const gs = [];
-      for (const s of d.sports) {
-        const f = await api(`/fixtures?sport=${s.key}`);
+      for (const { s, f } of results) {
         const active = f.matches.filter(m => m.status !== 'finished');
         const finished = f.matches.filter(m => m.status === 'finished').slice(-3).reverse();
         if (active.length || finished.length) gs.push({ label: s.label, matches: active, finished });

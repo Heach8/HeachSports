@@ -25,25 +25,30 @@ export async function getMatchState(matchId) {
   const match = await qGet('SELECT * FROM matches WHERE id = ?', [matchId]);
   if (!match) return null;
   const sportKey = await matchSport(match);
-  const sets = await qAll('SELECT * FROM match_sets WHERE match_id = ? ORDER BY set_no', [matchId]);
-  const current = sets.find(s => !s.finished) || null;
   const roster = (teamId) => qAll(
     "SELECT id, first_name, last_name, jersey_no FROM players WHERE team_id = ? AND status = 'approved' ORDER BY jersey_no",
     [teamId]);
-  const playerStats = await qAll(`
-    SELECT p.id, p.first_name, p.last_name, p.jersey_no, p.team_id, ${statColsSelect(sportKey)}
-    FROM stat_events e JOIN players p ON p.id = e.player_id
-    WHERE e.match_id = ? GROUP BY p.id ORDER BY 6 DESC
-  `, [matchId]);
+  // Bagimsiz sorgular paralel: uzak veritabaninda gecikmeyi ciddi azaltir
+  const [sets, playerStats, homeTeam, awayTeam, homeRoster, awayRoster] = await Promise.all([
+    qAll('SELECT * FROM match_sets WHERE match_id = ? ORDER BY set_no', [matchId]),
+    qAll(`
+      SELECT p.id, p.first_name, p.last_name, p.jersey_no, p.team_id, ${statColsSelect(sportKey)}
+      FROM stat_events e JOIN players p ON p.id = e.player_id
+      WHERE e.match_id = ? GROUP BY p.id ORDER BY 6 DESC
+    `, [matchId]),
+    qGet('SELECT id, name, logo_path FROM teams WHERE id = ?', [match.home_team_id]),
+    qGet('SELECT id, name, logo_path FROM teams WHERE id = ?', [match.away_team_id]),
+    roster(match.home_team_id),
+    roster(match.away_team_id)
+  ]);
+  const current = sets.find(s => !s.finished) || null;
   let totals = { home: 0, away: 0 };
   for (const s of sets) { totals.home += s.home_points; totals.away += s.away_points; }
   return {
     match, sport: sportConfigForClient(sportKey),
-    home_team: await qGet('SELECT id, name, logo_path FROM teams WHERE id = ?', [match.home_team_id]),
-    away_team: await qGet('SELECT id, name, logo_path FROM teams WHERE id = ?', [match.away_team_id]),
+    home_team: homeTeam, away_team: awayTeam,
     sets, current_set: current, totals, playerStats,
-    home_roster: await roster(match.home_team_id),
-    away_roster: await roster(match.away_team_id)
+    home_roster: homeRoster, away_roster: awayRoster
   };
 }
 

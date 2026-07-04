@@ -31,8 +31,18 @@ async function matchWithNames(m) {
 }
 
 async function decorateAll(matches) {
+  if (!matches.length) return [];
+  // Tum takimlari tek sorguda cek
+  const teams = await qAll('SELECT id, name, logo_path FROM teams');
+  const tmap = new Map(teams.map(t => [t.id, t]));
   const out = [];
-  for (const m of matches) out.push(await matchWithNames(m));
+  for (const m of matches) {
+    const h = tmap.get(m.home_team_id) || {};
+    const a = tmap.get(m.away_team_id) || {};
+    const item = { ...m, home_team: h.name, away_team: a.name, home_logo: h.logo_path, away_logo: a.logo_path };
+    if (m.status === 'live') out.push(await matchWithNames(m)); // canli detay icin tam yol
+    else out.push(item);
+  }
   return out;
 }
 

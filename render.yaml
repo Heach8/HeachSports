@@ -3,6 +3,7 @@ services:
     name: ncl-turnuva
     runtime: node
     plan: free
+    region: frankfurt
     buildCommand: cd client && npm install && npm run build && cd ../server && npm install
     startCommand: cd server && node src/index.js
     healthCheckPath: /api/sports
