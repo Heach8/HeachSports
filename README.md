@@ -49,6 +49,19 @@ npm run dev      # http://localhost:5173 (api istekleri 3001'e yönlenir)
 
 Veritabanını sıfırlamak için `server/data/ncl.sqlite` dosyasını silip `npm run seed` çalıştırın.
 
+## İnternete Açma (Deploy)
+Bu uygulama **sürekli çalışan bir Node sunucusu** gerektirir. Vercel/Netlify gibi serverless platformlar uygun DEĞİLDİR (canlı skor bağlantısı ve oturumlar kopar). Önerilen: **Render.com** (ücretsiz plan yeterli):
+
+1. https://render.com — GitHub ile giriş yapın
+2. **New → Blueprint** → bu depoyu seçin (repo kökündeki `render.yaml` otomatik algılanır)
+3. Sorulduğunda `DATABASE_URL` değerine Supabase bağlantı adresinizi yapıştırın
+4. Deploy bitince `https://ncl-turnuva.onrender.com` benzeri adres hazır olur
+
+Notlar:
+- Ücretsiz planda 15 dk hareketsizlikte uyur, ilk istekte ~30 sn'de uyanır.
+- Yüklenen fotoğraflar yeniden deploy'da silinir (kalıcılık için ileride Supabase Storage'a taşınabilir).
+- `server/.env` ASLA GitHub'a yüklenmemelidir — bağlantı bilgisi Render panelindeki ortam değişkeninden verilir.
+
 ## Roller
 - **Süper Admin:** Her şey + admin oluşturma
 - **Admin:** Onay kuyruğu, takım/kullanıcı/fikstür/ceza yönetimi, ayarlar

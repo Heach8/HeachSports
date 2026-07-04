@@ -14,6 +14,7 @@ import { initSchema, IS_PG } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+app.set('trust proxy', 1); // Render/Vercel gibi proxy arkasinda dogru IP/cookie davranisi
 const PORT = process.env.PORT || 3001;
 
 app.use(express.json());
