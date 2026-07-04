@@ -1,0 +1,181 @@
+import { Router } from 'express';
+import { qGet, qAll, getActiveSeason } from './db.js';
+import { ah } from './auth.js';
+import { computeStandings } from './standings.js';
+import { SPORTS, SPORT_KEYS, sportOf, sportConfigForClient, isSetBased } from './sports.js';
+
+export const publicRouter = Router();
+
+const reqSport = (req) => (SPORT_KEYS.includes(req.query.sport) ? req.query.sport : 'volleyball');
+
+async function matchWithNames(m) {
+  const h = await qGet('SELECT name, logo_path FROM teams WHERE id = ?', [m.home_team_id]) || {};
+  const a = await qGet('SELECT name, logo_path FROM teams WHERE id = ?', [m.away_team_id]) || {};
+  const out = { ...m, home_team: h.name, away_team: a.name, home_logo: h.logo_path, away_logo: a.logo_path };
+  if (m.status === 'live') {
+    const season = await qGet('SELECT sport FROM seasons WHERE id = ?', [m.season_id]);
+    const sport = season?.sport || 'volleyball';
+    const sets = await qAll('SELECT * FROM match_sets WHERE match_id = ? ORDER BY set_no', [m.id]);
+    const cur = sets.find(s => !s.finished);
+    let th = 0, ta = 0;
+    for (const s of sets) { th += s.home_points; ta += s.away_points; }
+    const pn = sportOf(sport).periodName.toLowerCase();
+    if (isSetBased(sport)) {
+      out.live_detail = cur ? `${cur.set_no}. ${pn}: ${cur.home_points}-${cur.away_points}` : '';
+    } else {
+      out.home_sets = th; out.away_sets = ta;
+      out.live_detail = cur ? `${cur.set_no}. ${pn}` : '';
+    }
+  }
+  return out;
+}
+
+async function decorateAll(matches) {
+  const out = [];
+  for (const m of matches) out.push(await matchWithNames(m));
+  return out;
+}
+
+publicRouter.get('/sports', ah(async (req, res) => {
+  const list = [];
+  for (const k of SPORT_KEYS) {
+    list.push({ key: k, label: SPORTS[k].label, has_season: !!(await getActiveSeason(k)) });
+  }
+  res.json({ sports: list });
+}));
+
+publicRouter.get('/season', ah(async (req, res) => {
+  const sport = reqSport(req);
+  res.json({ season: await getActiveSeason(sport), sport: sportConfigForClient(sport) });
+}));
+
+publicRouter.get('/standings', ah(async (req, res) => {
+  const season = await getActiveSeason(reqSport(req));
+  if (!season) return res.json({ standings: [], sport: reqSport(req) });
+  res.json({ standings: await computeStandings(season.id), sport: season.sport });
+}));
+
+publicRouter.get('/fixtures', ah(async (req, res) => {
+  const season = await getActiveSeason(reqSport(req));
+  if (!season) return res.json({ matches: [] });
+  const matches = await qAll('SELECT * FROM matches WHERE season_id = ? ORDER BY round, scheduled_at, id', [season.id]);
+  res.json({ matches: await decorateAll(matches) });
+}));
+
+publicRouter.get('/live-matches', ah(async (req, res) => {
+  const matches = await qAll(
+    "SELECT m.*, s.sport FROM matches m JOIN seasons s ON s.id = m.season_id WHERE m.status = 'live'");
+  const out = [];
+  for (const m of matches) {
+    out.push({ ...(await matchWithNames(m)), sport_label: sportOf(m.sport).label });
+  }
+  res.json({ matches: out });
+}));
+
+publicRouter.get('/teams', ah(async (req, res) => {
+  const season = await getActiveSeason(reqSport(req));
+  if (!season) return res.json({ teams: [] });
+  const teams = await qAll(`
+    SELECT t.*, (SELECT COUNT(*) FROM players p WHERE p.team_id = t.id AND p.status = 'approved') AS player_count
+    FROM teams t WHERE t.season_id = ? ORDER BY t.name
+  `, [season.id]);
+  res.json({ teams });
+}));
+
+publicRouter.get('/teams/:id', ah(async (req, res) => {
+  const team = await qGet('SELECT * FROM teams WHERE id = ?', [req.params.id]);
+  if (!team) return res.status(404).json({ error: 'Takim bulunamadi' });
+  const season = await qGet('SELECT * FROM seasons WHERE id = ?', [team.season_id]);
+  const players = await qAll(
+    "SELECT id, first_name, last_name, height_cm, weight_kg, jersey_no, position, photo_path FROM players WHERE team_id = ? AND status = 'approved' ORDER BY jersey_no",
+    [team.id]);
+  const matches = await qAll(
+    'SELECT * FROM matches WHERE home_team_id = ? OR away_team_id = ? ORDER BY round',
+    [team.id, team.id]);
+  res.json({ team, players, matches: await decorateAll(matches), sport: sportConfigForClient(season?.sport || 'volleyball') });
+}));
+
+publicRouter.get('/players/:id', ah(async (req, res) => {
+  const player = await qGet(`
+    SELECT p.id, p.first_name, p.last_name, p.height_cm, p.weight_kg, p.jersey_no,
+           p.position, p.photo_path, p.team_id, t.name AS team_name, t.logo_path AS team_logo, t.season_id
+    FROM players p JOIN teams t ON t.id = p.team_id
+    WHERE p.id = ? AND p.status = 'approved'
+  `, [req.params.id]);
+  if (!player) return res.status(404).json({ error: 'Oyuncu bulunamadi' });
+  const season = await qGet('SELECT * FROM seasons WHERE id = ?', [player.season_id]);
+  const sportKey = season?.sport || 'volleyball';
+  const sport = sportOf(sportKey);
+  const cols = sport.statCols.map(c => {
+    const agg = c.sum ? `SUM(CASE WHEN ${c.cond} THEN e.points ELSE 0 END)` : `SUM(CASE WHEN ${c.cond} THEN 1 ELSE 0 END)`;
+    return `COALESCE(${agg}, 0) AS ${c.key}`;
+  }).join(', ');
+  const stats = await qGet(`
+    SELECT COUNT(DISTINCT e.match_id) AS matches_played, ${cols}
+    FROM stat_events e WHERE e.player_id = ?
+  `, [player.id]);
+  const penalties = await qAll('SELECT * FROM penalties WHERE player_id = ? ORDER BY created_at DESC', [player.id]);
+  const mvpCount = (await qGet(
+    "SELECT COUNT(*) AS c FROM matches WHERE mvp_player_id = ? AND status = 'finished'", [player.id])).c;
+  res.json({ player, stats, penalties, mvp_count: mvpCount, sport: sportConfigForClient(sportKey) });
+}));
+
+publicRouter.get('/leaders', ah(async (req, res) => {
+  const sportKey = reqSport(req);
+  const season = await getActiveSeason(sportKey);
+  const sport = sportOf(sportKey);
+  const titles = sport.leaders.map(l => ({ key: l.key, label: l.label, suffix: l.ratio ? '%' : '' }));
+  if (!season) return res.json({ leaders: {}, titles });
+  const leaders = {};
+  for (const l of sport.leaders) {
+    if (l.ratio) {
+      leaders[l.key] = await qAll(`
+        SELECT p.id, p.first_name, p.last_name, p.photo_path, t.name AS team_name, t.logo_path AS team_logo,
+          ROUND(100.0 * SUM(CASE WHEN e.type = '${l.ratio.ok}' THEN 1 ELSE 0 END)
+            / (SUM(CASE WHEN e.type = '${l.ratio.ok}' THEN 1 ELSE 0 END) + SUM(CASE WHEN e.type = '${l.ratio.err}' THEN 1 ELSE 0 END))) AS value,
+          COUNT(*) AS attempts
+        FROM stat_events e
+        JOIN players p ON p.id = e.player_id
+        JOIN teams t ON t.id = p.team_id
+        JOIN matches m ON m.id = e.match_id
+        WHERE m.season_id = ? AND e.type IN ('${l.ratio.ok}','${l.ratio.err}')
+        GROUP BY p.id, t.name, t.logo_path HAVING COUNT(*) >= ${l.ratio.min}
+        ORDER BY value DESC LIMIT 10
+      `, [season.id]);
+      continue;
+    }
+    const agg = l.sum ? 'SUM(e.points)' : 'COUNT(*)';
+    leaders[l.key] = await qAll(`
+      SELECT p.id, p.first_name, p.last_name, p.photo_path, t.name AS team_name, t.logo_path AS team_logo, ${agg} AS value
+      FROM stat_events e
+      JOIN players p ON p.id = e.player_id
+      JOIN teams t ON t.id = p.team_id
+      JOIN matches m ON m.id = e.match_id
+      WHERE m.season_id = ? AND e.player_id IS NOT NULL AND ${l.cond}
+      GROUP BY p.id, t.name, t.logo_path ORDER BY value DESC LIMIT 10
+    `, [season.id]);
+  }
+  res.json({ leaders, titles });
+}));
+
+publicRouter.get('/matches/:id', ah(async (req, res) => {
+  const match = await qGet('SELECT * FROM matches WHERE id = ?', [req.params.id]);
+  if (!match) return res.status(404).json({ error: 'Mac bulunamadi' });
+  const season = await qGet('SELECT * FROM seasons WHERE id = ?', [match.season_id]);
+  const sportKey = season?.sport || 'volleyball';
+  const sport = sportOf(sportKey);
+  const sets = await qAll('SELECT * FROM match_sets WHERE match_id = ? ORDER BY set_no', [match.id]);
+  const cols = sport.statCols.map(c => {
+    const agg = c.sum ? `SUM(CASE WHEN ${c.cond} THEN e.points ELSE 0 END)` : `SUM(CASE WHEN ${c.cond} THEN 1 ELSE 0 END)`;
+    return `COALESCE(${agg}, 0) AS ${c.key}`;
+  }).join(', ');
+  const playerStats = await qAll(`
+    SELECT p.id, p.first_name, p.last_name, p.jersey_no, p.team_id, ${cols}
+    FROM stat_events e JOIN players p ON p.id = e.player_id
+    WHERE e.match_id = ? GROUP BY p.id ORDER BY 6 DESC
+  `, [match.id]);
+  const mvp = match.mvp_player_id
+    ? await qGet('SELECT id, first_name, last_name FROM players WHERE id = ?', [match.mvp_player_id])
+    : null;
+  res.json({ match: await matchWithNames(match), sets, playerStats, mvp, sport: sportConfigForClient(sportKey) });
+}));

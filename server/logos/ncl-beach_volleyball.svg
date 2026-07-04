@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 90">
+  <defs>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fbbf24"/><stop offset="1" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="txt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#d1d9e6"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(45,45)">
+    <circle r="40" fill="none" stroke="url(#ring)" stroke-width="5"/>
+    <!-- Gunes -->
+    <g transform="translate(20,-20)">
+      <circle r="7" fill="#fbbf24"/>
+      <g stroke="#fbbf24" stroke-width="2">
+        <line x1="0" y1="-13" x2="0" y2="-10"/><line x1="0" y1="10" x2="0" y2="13"/>
+        <line x1="-13" y1="0" x2="-10" y2="0"/><line x1="10" y1="0" x2="13" y2="0"/>
+        <line x1="-9" y1="-9" x2="-7" y2="-7"/><line x1="7" y1="7" x2="9" y2="9"/>
+        <line x1="-9" y1="9" x2="-7" y2="7"/><line x1="7" y1="-7" x2="9" y2="-9"/>
+      </g>
+    </g>
+    <!-- Top (sol altta) -->
+    <g transform="translate(-8,8)">
+      <circle r="21" fill="#141a26" stroke="#e8edf5" stroke-width="2.2"/>
+      <path d="M -21 0 C -10 -8, 10 -8, 21 0" fill="none" stroke="#e8edf5" stroke-width="1.8"/>
+      <path d="M -10.5 -18 C -6.5 -5, -6.5 5, -10.5 18" fill="none" stroke="#e8edf5" stroke-width="1.8"/>
+      <path d="M 10.5 -18 C 6.5 -5, 6.5 5, 10.5 18" fill="none" stroke="#e8edf5" stroke-width="1.8"/>
+    </g>
+    <path d="M 0 -52 l 2.4 5.2 5.6 .6 -4.2 3.9 1.2 5.6 -5 -2.9 -5 2.9 1.2 -5.6 -4.2 -3.9 5.6 -.6 z" fill="#fbbf24"/>
+  </g>
+  <text x="102" y="52" font-family="Segoe UI, Arial, sans-serif" font-size="44" font-weight="900"
+        fill="url(#txt)" letter-spacing="2">NCL</text>
+  <text x="104" y="72" font-family="Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="600"
+        fill="#f59e0b" letter-spacing="1.6">NATIONAL CORPORATE LEAGUE</text>
+</svg>

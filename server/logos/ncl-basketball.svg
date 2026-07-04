@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 90">
+  <defs>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fbbf24"/><stop offset="1" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="txt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#d1d9e6"/>
+    </linearGradient>
+  </defs>
+  <!-- Amblem -->
+  <g transform="translate(45,45)">
+    <circle r="40" fill="none" stroke="url(#ring)" stroke-width="5"/>
+    <circle r="40" fill="none" stroke="url(#ring)" stroke-width="5" stroke-dasharray="8 244" stroke-dashoffset="-60" opacity=".0"/>
+    <path d="M -40 0 A 40 40 0 0 1 0 -40" fill="none" stroke="#fff" stroke-width="1.5" opacity=".35"/>
+    <circle r="26" fill="#141a26" stroke="#e8edf5" stroke-width="2.5"/>
+    <line x1="-26" y1="0" x2="26" y2="0" stroke="#e8edf5" stroke-width="2.2"/>
+    <line x1="0" y1="-26" x2="0" y2="26" stroke="#e8edf5" stroke-width="2.2"/>
+    <path d="M -18.5 -18.5 C -4 -8, -4 8, -18.5 18.5" fill="none" stroke="#e8edf5" stroke-width="2.2"/>
+    <path d="M 18.5 -18.5 C 4 -8, 4 8, 18.5 18.5" fill="none" stroke="#e8edf5" stroke-width="2.2"/>
+    <!-- Yildiz -->
+    <path d="M 0 -52 l 2.4 5.2 5.6 .6 -4.2 3.9 1.2 5.6 -5 -2.9 -5 2.9 1.2 -5.6 -4.2 -3.9 5.6 -.6 z" fill="#fbbf24"/>
+  </g>
+  <!-- Yazi -->
+  <text x="102" y="52" font-family="Segoe UI, Arial, sans-serif" font-size="44" font-weight="900"
+        fill="url(#txt)" letter-spacing="2">NCL</text>
+  <text x="104" y="72" font-family="Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="600"
+        fill="#f59e0b" letter-spacing="1.6">NATIONAL CORPORATE LEAGUE</text>
+</svg>

@@ -1,0 +1,221 @@
+:root {
+  --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+  --border: #30363d; --text: #e6edf3; --muted: #8b949e;
+  --accent: #f59e0b; --accent2: #fbbf24; --green: #2ea043; --red: #da3633; --blue: #388bfd;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; }
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; font-family: inherit; }
+
+.nav { display: flex; align-items: center; gap: 4px; padding: 10px 20px; background: var(--bg2); border-bottom: 1px solid var(--border); flex-wrap: wrap; position: sticky; top: 0; z-index: 10; }
+.nav .brand { font-weight: 800; font-size: 18px; color: var(--accent); margin-right: 16px; }
+.nav a { padding: 6px 12px; border-radius: 6px; font-size: 14px; color: var(--muted); }
+.nav a.active, .nav a:hover { background: var(--bg3); color: var(--text); }
+.nav .spacer { flex: 1; }
+.nav .user { font-size: 13px; color: var(--muted); margin-right: 8px; }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+h1 { font-size: 24px; margin-bottom: 16px; }
+h2 { font-size: 18px; margin: 20px 0 10px; }
+.muted { color: var(--muted); font-size: 13px; }
+
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+.grid { display: grid; gap: 14px; }
+.grid.cols2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.grid.cols3 { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+tr:hover td { background: var(--bg3); }
+td.num, th.num { text-align: center; }
+
+.btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 8px 14px; border-radius: 6px; font-size: 14px; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 600; }
+.btn.green { background: var(--green); border-color: var(--green); }
+.btn.red { background: var(--red); border-color: var(--red); }
+.btn.sm { padding: 4px 10px; font-size: 12px; }
+.btn.big { padding: 14px 20px; font-size: 16px; font-weight: 700; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+input, select, textarea { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 6px; font-size: 14px; width: 100%; }
+label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+.formrow { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+.badge.pending { background: #3b2b0a; color: var(--accent2); }
+.badge.approved { background: #0f2e18; color: #3fb950; }
+.badge.rejected { background: #3a1214; color: #f85149; }
+.badge.live { background: var(--red); color: #fff; animation: pulse 1.5s infinite; }
+.badge.finished { background: var(--bg3); color: var(--muted); }
+.badge.scheduled { background: #10233d; color: var(--blue); }
+@keyframes pulse { 50% { opacity: .6; } }
+
+.error { background: #3a1214; color: #f85149; padding: 10px 14px; border-radius: 6px; margin: 10px 0; font-size: 14px; }
+.success { background: #0f2e18; color: #3fb950; padding: 10px 14px; border-radius: 6px; margin: 10px 0; font-size: 14px; }
+
+.matchrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px; border-bottom: 1px solid var(--border); }
+.matchrow:last-child { border-bottom: none; }
+.matchrow .teams { flex: 1; display: flex; align-items: center; gap: 8px; justify-content: center; font-weight: 600; }
+.matchrow .score { font-size: 18px; font-weight: 800; color: var(--accent); min-width: 60px; text-align: center; }
+
+.avatar { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; background: var(--bg3); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: var(--muted); }
+.avatar.lg { width: 96px; height: 96px; font-size: 28px; }
+
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.tabs button { background: var(--bg3); border: 1px solid var(--border); color: var(--muted); padding: 8px 14px; border-radius: 8px; font-size: 14px; }
+.tabs button.active { background: var(--accent); color: #000; font-weight: 600; border-color: var(--accent); }
+
+/* Canli konsol */
+.console-score { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center; text-align: center; margin-bottom: 20px; }
+.console-score .team-name { font-size: 20px; font-weight: 700; }
+.console-score .pts { font-size: 72px; font-weight: 900; line-height: 1; }
+.console-score .sets { color: var(--accent); font-size: 28px; font-weight: 800; }
+.pointbtns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+
+/* Scoreboard (tam ekran) */
+.scoreboard { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #000; padding: 20px; }
+.scoreboard .big { display: grid; grid-template-columns: 1fr auto 1fr; gap: 40px; align-items: center; width: 100%; max-width: 1200px; text-align: center; }
+.scoreboard .tname { font-size: clamp(24px, 4vw, 56px); font-weight: 800; }
+.scoreboard .tpts { font-size: clamp(80px, 18vw, 260px); font-weight: 900; color: var(--accent); line-height: 1; }
+.scoreboard .tsets { font-size: clamp(24px, 4vw, 48px); color: var(--muted); }
+.scoreboard .sethistory { margin-top: 30px; color: var(--muted); font-size: clamp(14px, 2vw, 24px); display: flex; gap: 18px; }
+
+/* --- Gorsel zenginlestirme --- */
+.hero { display: flex; align-items: center; gap: 18px; padding: 26px 24px; margin-bottom: 18px;
+  background: linear-gradient(135deg, #1b2440 0%, #10182e 55%, #241a06 100%);
+  border: 1px solid var(--border); border-radius: 14px; }
+.hero-emoji { font-size: 52px; line-height: 1; }
+.hero h1 { font-size: 26px; }
+
+.sportpills { display: flex; gap: 4px; margin-left: 6px; }
+.sportpills button { background: transparent; border: 1px solid var(--border); color: var(--muted);
+  padding: 6px 12px; border-radius: 999px; font-size: 13px; }
+.sportpills button.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 700; }
+.sportpills button:hover:not(.active) { border-color: var(--muted); color: var(--text); }
+
+.teamlogo { width: 26px; height: 26px; border-radius: 50%; vertical-align: middle; }
+.teamlogo.sm { width: 16px; height: 16px; }
+.teamlogo.lg { width: 56px; height: 56px; }
+.teamlogo.xl { width: 72px; height: 72px; }
+.sb-logo { width: clamp(60px, 9vw, 130px); height: auto; margin-bottom: 12px; }
+
+.teamcard { text-align: center; transition: transform .15s, border-color .15s; }
+.teamcard:hover { transform: translateY(-3px); border-color: var(--accent); }
+
+.live-card { border-color: rgba(218, 54, 51, .5); box-shadow: 0 0 24px rgba(218, 54, 51, .08); }
+
+.card { box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+.nav .brand { letter-spacing: .5px; }
+
+/* --- NCL marka & animasyonlar --- */
+.brandlogo { height: 34px; display: block; }
+.herologo { height: 74px; animation: float 4s ease-in-out infinite; }
+.hero { background: linear-gradient(120deg, #1b2440, #10182e, #2a1d06, #10182e, #1b2440);
+  background-size: 300% 300%; animation: heroshift 14s ease infinite; }
+.hero-divider { width: 1px; align-self: stretch; background: var(--border); }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+@keyframes heroshift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+
+.ticker { overflow: hidden; background: linear-gradient(90deg, #2a0e0d, #1a0b0b); border: 1px solid rgba(218,54,51,.4);
+  border-radius: 8px; margin-bottom: 14px; white-space: nowrap; }
+.ticker-inner { display: inline-block; padding: 8px 0; animation: tickerscroll 18s linear infinite; }
+.ticker:hover .ticker-inner { animation-play-state: paused; }
+.ticker-item { margin: 0 34px; font-size: 14px; color: var(--text); }
+.ticker-score { color: var(--accent); font-size: 15px; }
+@keyframes tickerscroll { 0% { transform: translateX(20%); } 100% { transform: translateX(-50%); } }
+
+.card { animation: fadeup .35s ease both; }
+@keyframes fadeup { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+.tpts { animation: scorepop .35s ease; }
+@keyframes scorepop { 0% { transform: scale(1.25); color: #fff; } 100% { transform: scale(1); } }
+
+.livedetail { display: block; font-size: 11px; font-weight: 600; color: var(--red); }
+.badge.live { box-shadow: 0 0 10px rgba(218,54,51,.6); }
+
+/* --- Saha gorunumlu mac konsolu --- */
+.court { position: relative; height: 480px; border-radius: 12px; overflow: hidden;
+  border: 2px solid var(--border); display: flex; touch-action: none; user-select: none; margin-top: 14px; }
+.court.volleyball, .court.basketball { background: linear-gradient(180deg, #7a4a1d, #6b3f16); }
+.court.beach_volleyball { background: linear-gradient(180deg, #c2954f, #a87c3c); }
+.court.football { background: linear-gradient(180deg, #1d5c2e, #174d26); }
+.court::before { content: ''; position: absolute; inset: 12px; border: 2px solid rgba(255,255,255,.5); border-radius: 4px; pointer-events: none; }
+.court-half { flex: 1; position: relative; }
+.court-net { width: 3px; background: repeating-linear-gradient(180deg, rgba(255,255,255,.85) 0 8px, rgba(255,255,255,.25) 8px 14px); z-index: 1; }
+.court-team { position: absolute; top: 8px; left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: 8px;
+  font-weight: 800; font-size: 15px; color: rgba(255,255,255,.95); text-shadow: 0 1px 3px rgba(0,0,0,.7); z-index: 2; pointer-events: none; }
+.court-team img { width: 24px; height: 24px; border-radius: 50%; }
+.court-pts { font-size: 22px; color: var(--accent2); }
+
+.chip { position: absolute; transform: translate(-50%, -50%); z-index: 3; width: 118px;
+  background: rgba(13, 17, 23, .92); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 3px 10px rgba(0,0,0,.45); overflow: hidden; }
+.chip.home { border-top: 3px solid var(--blue); }
+.chip.away { border-top: 3px solid var(--red); }
+.chip-head { display: flex; align-items: center; gap: 5px; padding: 5px 7px; cursor: grab; background: rgba(255,255,255,.05); }
+.chip-head:active { cursor: grabbing; }
+.chip-no { background: var(--accent); color: #000; font-weight: 800; font-size: 11px; border-radius: 4px; padding: 1px 4px; }
+.chip-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+.chip-total { font-size: 11px; font-weight: 800; color: var(--accent2); }
+.chip-btns { display: grid; grid-template-columns: repeat(3, 1fr); }
+.chip-btns button { border: none; padding: 5px 0; font-size: 10px; font-weight: 700; cursor: pointer;
+  border-top: 1px solid rgba(255,255,255,.06); border-right: 1px solid rgba(255,255,255,.06); }
+.chip-btns button:disabled { opacity: .35; cursor: not-allowed; }
+.chip-btns .ev-score { background: #14421f; color: #4ade80; }
+.chip-btns .ev-score:hover:not(:disabled) { background: var(--green); color: #fff; }
+.chip-btns .ev-neutral { background: #1a2230; color: #93a4bd; }
+.chip-btns .ev-neutral:hover:not(:disabled) { background: var(--blue); color: #fff; }
+.chip-btns .ev-bad { background: #3a1214; color: #f87171; }
+.chip-btns .ev-bad:hover:not(:disabled) { background: var(--red); color: #fff; }
+
+@media (max-width: 700px) { .court { height: 560px; } .chip { width: 100px; } }
+
+/* --- Konsol: skor paneli (aktif set on planda) --- */
+.scorehead { text-align: center; padding: 12px 16px; }
+.scorehead-main { display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: center; margin-top: 4px; }
+.scorehead-team { display: flex; align-items: center; gap: 10px; justify-content: flex-end; font-size: 20px; font-weight: 800; }
+.scorehead-team.right { justify-content: flex-start; }
+.scorehead-team img { width: 40px; height: 40px; border-radius: 50%; }
+.scorehead-label { font-size: 12px; font-weight: 700; letter-spacing: 1.5px; color: var(--red); }
+.scorehead-pts { display: flex; align-items: baseline; gap: 10px; justify-content: center; }
+.scorehead-pts .pts-num { font-size: 64px; font-weight: 900; line-height: 1; color: var(--accent); animation: scorepop .35s ease; }
+.scorehead-pts .pts-sep { font-size: 36px; font-weight: 700; color: var(--muted); }
+.scorehead-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.scorehead-sub b { color: var(--text); }
+@media (max-width: 700px) {
+  .scorehead-main { grid-template-columns: 1fr; gap: 4px; }
+  .scorehead-team, .scorehead-team.right { justify-content: center; font-size: 16px; }
+}
+
+/* --- Konsol: yedek kulubeleri --- */
+.console-wrap { display: flex; gap: 10px; margin-top: 14px; align-items: stretch; }
+.console-wrap .court { flex: 1; margin-top: 0; }
+.bench { width: 132px; flex-shrink: 0; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.bench-title { display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+.bench-title img { width: 20px; height: 20px; border-radius: 50%; }
+.bench-chip { display: flex; align-items: center; gap: 6px; padding: 7px 8px; border-radius: 8px;
+  background: var(--bg3); border: 1px solid var(--border); cursor: grab; touch-action: none; user-select: none; }
+.bench-chip:active { cursor: grabbing; }
+.bench-chip:hover { border-color: var(--accent); }
+.bench-chip.dragging { opacity: .35; }
+.bench-chip.home { border-left: 3px solid var(--blue); }
+.bench-chip.away { border-left: 3px solid var(--red); }
+.bench-chip .chip-name { font-size: 12px; }
+.bench-hint { font-size: 10px; color: var(--muted); text-align: center; margin-top: auto; line-height: 1.4; }
+
+.bench-ghost { position: fixed; transform: translate(-50%, -50%); z-index: 999; pointer-events: none;
+  display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 8px;
+  background: var(--accent); color: #000; font-weight: 700; font-size: 13px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.5); }
+
+@media (max-width: 900px) {
+  .console-wrap { flex-direction: column; }
+  .bench { width: 100%; flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .bench-title { border-bottom: none; padding-bottom: 0; }
+  .bench-hint { display: none; }
+}
