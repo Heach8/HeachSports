@@ -39,9 +39,33 @@ export default function LiveConsole() {
   const [positions, setPositions] = useState({});   // { playerId: {x, y} } tum saha %
   const [lineup, setLineup] = useState(null);        // { home: [ids], away: [ids] }
   const [benchDrag, setBenchDrag] = useState(null);  // { id, side, cx, cy }
+  const [portrait, setPortrait] = useState(false); // dar ekranda saha dikey cizilir
   const courtRef = useRef(null);
   const dragRef = useRef(null);
   const dragOriginRef = useRef(null); // takas icin baslangic konumu
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 700px)');
+    const update = () => setPortrait(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  // Saklanan koordinat sistemi sabittir: x = file eksenine dik (ev 0 -> dep 100), y = saha genisligi.
+  // Portre modda ekranda 90 derece cevrilir.
+  const toScreen = (pos) => (portrait ? { left: pos.y, top: pos.x } : { left: pos.x, top: pos.y });
+  const posToPx = (pos, r) => {
+    const sc = toScreen(pos);
+    return { x: r.left + (sc.left / 100) * r.width, y: r.top + (sc.top / 100) * r.height };
+  };
+  const pointerToPos = (e, r) => {
+    const relX = ((e.clientX - r.left) / r.width) * 100;
+    const relY = ((e.clientY - r.top) / r.height) * 100;
+    const x = portrait ? relY : relX;
+    const y = portrait ? relX : relY;
+    return { x: Math.min(96, Math.max(4, x)), y: Math.min(94, Math.max(6, y)) };
+  };
 
   useEffect(() => {
     api(`/live/${id}/state`).then(setS).catch(e => setError(e.message));
@@ -110,9 +134,7 @@ export default function LiveConsole() {
     }
     if (!dragRef.current || !courtRef.current) return;
     const r = courtRef.current.getBoundingClientRect();
-    const x = Math.min(98, Math.max(2, ((e.clientX - r.left) / r.width) * 100));
-    const y = Math.min(94, Math.max(6, ((e.clientY - r.top) / r.height) * 100));
-    setPositions(prev => ({ ...prev, [dragRef.current]: { x, y } }));
+    setPositions(prev => ({ ...prev, [dragRef.current]: pointerToPos(e, r) }));
   };
   const onDragEnd = () => {
     if (benchDrag) { finishBenchDrag(); return; }
@@ -127,13 +149,14 @@ export default function LiveConsole() {
       if (courtRef.current && lineup && origin) {
         const side = lineup.home.includes(draggedId) ? 'home' : 'away';
         const r = courtRef.current.getBoundingClientRect();
-        const dp = prev[draggedId];
+        const dpx = posToPx(prev[draggedId], r);
         let target = null, best = 1e9;
         for (const pid of lineup[side]) {
           if (pid === draggedId) continue;
           const pos = prev[pid];
           if (!pos) continue;
-          const d = Math.hypot(((pos.x - dp.x) / 100) * r.width, ((pos.y - dp.y) / 100) * r.height);
+          const pt = posToPx(pos, r);
+          const d = Math.hypot(pt.x - dpx.x, pt.y - dpx.y);
           if (d < best) { best = d; target = pid; }
         }
         if (target && best < 65) {
@@ -159,9 +182,8 @@ export default function LiveConsole() {
     for (const pid of lineup[b.side]) {
       const pos = positions[pid];
       if (!pos) continue;
-      const px = r.left + (pos.x / 100) * r.width;
-      const py = r.top + (pos.y / 100) * r.height;
-      const d = Math.hypot(px - b.cx, py - b.cy);
+      const pt = posToPx(pos, r);
+      const d = Math.hypot(pt.x - b.cx, pt.y - b.cy);
       if (d < best) { best = d; target = pid; }
     }
     if (!target || best > 70) return;
@@ -224,10 +246,11 @@ export default function LiveConsole() {
 
   const chip = (p, side) => {
     const pos = positions[p.id] || { x: side === 'home' ? 25 : 75, y: 50 };
+    const sc = toScreen(pos);
     const st = statOf(p.id);
     const total = st ? (st.total_points ?? st.goals ?? 0) : 0;
     return (
-      <div key={p.id} className={`chip ${side}`} style={{ left: pos.x + '%', top: pos.y + '%' }}>
+      <div key={p.id} className={`chip ${side}`} style={{ left: sc.left + '%', top: sc.top + '%' }}>
         <div className="chip-head" onPointerDown={(e) => onDragStart(e, p.id)} title="Sürükleyerek taşıyın">
           <span className="chip-no">{p.jersey_no}</span>
           <span className="chip-name">{p.first_name} {p.last_name.charAt(0)}.</span>
@@ -322,7 +345,7 @@ export default function LiveConsole() {
       {m.status !== 'finished' && (
         <div className="console-wrap" onPointerMove={onDragMove} onPointerUp={onDragEnd} onPointerLeave={onDragEnd}>
           {bench('home')}
-          <div className={`court ${sport.key}`} ref={courtRef}>
+          <div className={`court ${sport.key} ${portrait ? 'portrait' : ''}`} ref={courtRef}>
             <div className="court-half home">
               <span className="court-team">
                 {s.home_team.name} {cur && <b className="court-pts">{cur.home_points}</b>}

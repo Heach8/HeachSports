@@ -219,3 +219,45 @@ label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px
   .bench-title { border-bottom: none; padding-bottom: 0; }
   .bench-hint { display: none; }
 }
+
+/* --- Mobil duzeltmeler --- */
+body { overflow-x: hidden; }
+.card { overflow-x: auto; }
+
+/* Portre saha: ev sahibi ustte, rakip altta, file yatay */
+.court.portrait { flex-direction: column; height: 640px; flex: 0 0 auto; }
+.court.portrait .court-net { width: auto; height: 3px;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.85) 0 8px, rgba(255,255,255,.25) 8px 14px); }
+.court.portrait .court-half.away .court-team { top: auto; bottom: 8px; }
+
+@media (max-width: 700px) {
+  .container { padding: 14px 8px; }
+  h1 { font-size: 19px; }
+  .nav { padding: 8px 8px; gap: 2px; }
+  .nav a { padding: 5px 8px; font-size: 13px; }
+  .nav .user { display: none; }
+  .brandlogo { height: 28px; }
+  .sportpills button { padding: 5px 8px; font-size: 11px; }
+  .hero { flex-direction: column; text-align: center; gap: 8px; padding: 18px 12px; }
+  .hero-divider { display: none; }
+  .herologo { height: 54px; }
+  .hero h1 { font-size: 19px; }
+  table { font-size: 12px; }
+  th, td { padding: 6px 5px; }
+  .matchrow { flex-wrap: wrap; gap: 6px; }
+  .matchrow .teams { font-size: 13px; flex-wrap: wrap; }
+  .scorehead-pts .pts-num { font-size: 42px; }
+  .scorehead-team { font-size: 15px; }
+  .scorehead-team img { width: 28px; height: 28px; }
+  .scorehead-sub { font-size: 11px; }
+  .console-score .pts { font-size: 44px; }
+  .console-score .team-name { font-size: 15px; }
+  .chip { width: 96px; }
+  .chip-name { font-size: 11px; }
+  .chip-btns button { font-size: 9px; padding: 4px 0; }
+  .court-team { font-size: 13px; }
+  .scoreboard .sethistory { flex-wrap: wrap; justify-content: center; }
+  .btn.big { padding: 10px 14px; font-size: 14px; }
+  .bench { padding: 6px; gap: 4px; }
+  .bench-chip { padding: 5px 7px; }
+}
