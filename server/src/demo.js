@@ -203,6 +203,63 @@ if (fSeason && !(await qGet('SELECT COUNT(*) c FROM matches WHERE season_id = ?'
   console.log('Futbol demosu: 4 mac oynandi (gol detaylari + asistler + kartlar).');
 }
 
+// --- BASKETBOL DEMO: 2 hafta oynanmis (sayi/ribaund/asist/top calma/blok/faul) ---
+const bSeason = await qGet("SELECT * FROM seasons WHERE is_active = 1 AND sport = 'basketball'");
+if (bSeason && !(await qGet('SELECT COUNT(*) c FROM matches WHERE season_id = ?', [bSeason.id])).c) {
+  await qRun('UPDATE seasons SET foul_limit = 5, period_count = 4 WHERE id = ?', [bSeason.id]);
+  const bTeams = (await qAll('SELECT id FROM teams WHERE season_id = ?', [bSeason.id])).map(t => t.id);
+  const bArr = [...bTeams];
+  const bRounds = [];
+  for (let r = 0; r < bArr.length - 1; r++) {
+    const pairs = [];
+    for (let i = 0; i < bArr.length / 2; i++) {
+      const a = bArr[i], b = bArr[bArr.length - 1 - i];
+      pairs.push(r % 2 === 0 ? [a, b] : [b, a]);
+    }
+    bRounds.push(pairs);
+    bArr.splice(1, 0, bArr.pop());
+  }
+  const bIds = [];
+  for (let i = 0; i < bRounds.length; i++) {
+    for (const [h, a] of bRounds[i]) {
+      const mid = await qInsert(
+        'INSERT INTO matches (season_id, round, home_team_id, away_team_id, best_of, scheduled_at) VALUES (?, ?, ?, ?, 5, ?)',
+        [bSeason.id, i + 1, h, a, iso(now + (i - 1) * 5 * day)]);
+      bIds.push({ id: mid, round: i + 1, home: h, away: a });
+    }
+  }
+  const shotType = () => { const x = Math.random(); return x < .55 ? 'p2' : x < .8 ? 'p3' : 'p1'; };
+  for (const m of bIds.filter(x => x.round <= 2)) {
+    const hr = await roster(m.home), ar = await roster(m.away);
+    let th = 0, ta = 0;
+    for (let q = 1; q <= 4; q++) {
+      let hh = 0, ha = 0;
+      const plays = 14 + rnd(8);
+      for (let k = 0; k < plays; k++) {
+        const homeSide = Math.random() < 0.53;
+        const [tid, list, otid, olist] = homeSide ? [m.home, hr, m.away, ar] : [m.away, ar, m.home, hr];
+        const t = shotType();
+        const pts = t === 'p3' ? 3 : t === 'p2' ? 2 : 1;
+        await qRun('INSERT INTO stat_events (match_id, set_no, team_id, player_id, type, points) VALUES (?, ?, ?, ?, ?, ?)',
+          [m.id, q, tid, pickPlayer(list), t, pts]);
+        homeSide ? hh += pts : ha += pts;
+        if (Math.random() < 0.5) await insEv(m.id, q, tid, pickPlayer(list), 'assist', iso(now), 0);
+        if (Math.random() < 0.4) await insEv(m.id, q, otid, pickPlayer(olist), 'rebound', iso(now), 0);
+        if (Math.random() < 0.12) await insEv(m.id, q, otid, pickPlayer(olist), 'steal', iso(now), 0);
+        if (Math.random() < 0.1) await insEv(m.id, q, otid, pickPlayer(olist), 'block', iso(now), 0);
+        if (Math.random() < 0.15) await insEv(m.id, q, otid, pickPlayer(olist), 'foul', iso(now), 0);
+      }
+      await qRun('INSERT INTO match_sets (match_id, set_no, home_points, away_points, finished) VALUES (?, ?, ?, ?, 1)', [m.id, q, hh, ha]);
+      th += hh; ta += ha;
+    }
+    if (th === ta) { th += 2; await qRun('UPDATE match_sets SET home_points = home_points + 2 WHERE match_id = ? AND set_no = 4', [m.id]); }
+    const winner = th > ta ? m.home : m.away;
+    const top = await qGet(`SELECT player_id, SUM(points) c FROM stat_events WHERE match_id = ? AND team_id = ? AND points > 0 GROUP BY player_id ORDER BY c DESC LIMIT 1`, [m.id, winner]);
+    await qRun("UPDATE matches SET status = 'finished', home_sets = ?, away_sets = ?, mvp_player_id = ? WHERE id = ?", [th, ta, top?.player_id || null, m.id]);
+  }
+  console.log('Basketbol demosu: 4 mac oynandi (tum istatistiklerle).');
+}
+
 const done = (await qGet("SELECT COUNT(*) c FROM matches WHERE season_id = ? AND status = 'finished'", [season.id])).c;
 const evc = (await qGet('SELECT COUNT(*) c FROM stat_events')).c;
 console.log(`Demo hazir: ${done} voleybol maci oynandi, 1 mac CANLI, ${evc} istatistik olayi uretildi.`);

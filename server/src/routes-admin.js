@@ -67,11 +67,14 @@ adminRouter.post('/seasons', ah(async (req, res) => {
   const yl = Number(req.body.yellow_limit) || 0;
   const rb = req.body.red_ban ? 1 : 0;
   const format = ['league', 'groups_knockout', 'knockout'].includes(req.body.format) ? req.body.format : 'league';
+  // Basketbol kurallari
+  const fl = Number(req.body.foul_limit) || 0;
+  const pc = [2, 4].includes(Number(req.body.period_count)) ? Number(req.body.period_count) : null;
   const gc = format === 'groups_knockout' ? Math.max(2, Math.min(8, Number(req.body.group_count) || 2)) : null;
   const ac = format === 'groups_knockout' ? Math.max(1, Math.min(4, Number(req.body.advance_count) || 2)) : null;
   const id = await qInsert(
-    'INSERT INTO seasons (name, sport, court_size, yellow_limit, red_ban, format, group_count, advance_count, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)',
-    [name, sport, cs, yl, rb, format, gc, ac]);
+    'INSERT INTO seasons (name, sport, court_size, yellow_limit, red_ban, foul_limit, period_count, format, group_count, advance_count, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)',
+    [name, sport, cs, yl, rb, fl, pc, format, gc, ac]);
   res.json({ id });
 }));
 adminRouter.post('/seasons/:id/activate', ah(async (req, res) => {

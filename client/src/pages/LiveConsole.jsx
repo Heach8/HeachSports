@@ -240,7 +240,7 @@ export default function LiveConsole() {
       const needed = Math.floor(m.best_of / 2) + 1;
       canFinish = m.home_sets >= needed || m.away_sets >= needed;
     } else {
-      canFinish = !cur && s.sets.filter(x => x.finished).length >= sport.regularPeriods;
+      canFinish = !cur && s.sets.filter(x => x.finished).length >= (s.period_count || sport.regularPeriods);
     }
   }
   const needExtra = !isSetBased && m.status === 'live' && !cur && !sport.allowDraw && s.totals.home === s.totals.away;
@@ -253,6 +253,7 @@ export default function LiveConsole() {
     return roster.filter(p => !(lineup?.[side] || []).includes(p.id));
   };
   const suspOf = (pid) => (s.suspended || {})[pid];
+  const isFouledOut = (pid) => (s.fouled_out || []).includes(pid);
 
   // On planda: set-bazli sporlarda aktif set skoru; futbol/basketbolda TOPLAM skor
   const bigHome = isSetBased ? (cur ? cur.home_points : m.home_sets) : s.totals.home;
@@ -284,18 +285,19 @@ export default function LiveConsole() {
         </div>
       );
     }
+    const out = isFouledOut(p.id);
     return (
-      <div key={p.id} className={`chip ${side}`} style={{ left: sc.left + '%', top: sc.top + '%' }}>
-        <div className="chip-head" onPointerDown={(e) => onDragStart(e, p.id)} title="Sürükleyerek taşıyın">
+      <div key={p.id} className={`chip ${side} ${out ? 'fouledout' : ''}`} style={{ left: sc.left + '%', top: sc.top + '%' }}>
+        <div className="chip-head" onPointerDown={(e) => onDragStart(e, p.id)} title={out ? 'Faul limiti doldu — oyuncu değişikliği yapın' : 'Sürükleyerek taşıyın'}>
           <span className="chip-no">{p.jersey_no}</span>
           <span className="chip-name">{p.first_name} {p.last_name.charAt(0)}.</span>
-          {total > 0 && <span className="chip-total">{total}</span>}
+          {out ? <span className="susp-tag">OYUN DIŞI</span> : total > 0 && <span className="chip-total">{total}</span>}
         </div>
         <div className="chip-btns">
           {playerEvents.map(et => (
             <button key={et.key}
               className={et.points > 0 ? 'ev-score' : et.key.includes('err') || et.key.includes('red') || et.key === 'foul' ? 'ev-bad' : 'ev-neutral'}
-              disabled={!canScore}
+              disabled={!canScore || out}
               title={et.label + (et.points ? ` (+${et.points} sayı)` : '')}
               onClick={() => et.details
                 ? setGoalModal({ side, player: p, et, detail: et.details[0].key, assist: '' })
@@ -376,7 +378,7 @@ export default function LiveConsole() {
                 </button>
               )}
               {needExtra && <button className="btn" onClick={() => call('/add-period')}>Uzatma Periyodu Ekle</button>}
-              {!cur && !needExtra && !canFinish && <button className="btn" onClick={() => call('/add-period')}>Yeni {sport.periodName} Ekle</button>}
+        {!cur && !needExtra && !canFinish && <button className="btn" onClick={() => call('/add-period')}>Yeni {sport.periodName} Ekle</button>}
               {canFinish && !needExtra && <button className="btn green" onClick={() => confirm('Maç bitirilsin mi? (Maçın oyuncusunu sonradan seçebilirsiniz)') && call('/finish', {})}>Maçı Bitir</button>}
               <Link className="btn" to={`/scoreboard/${m.id}`} target="_blank">Skorboard ↗</Link>
             </>
@@ -392,11 +394,21 @@ export default function LiveConsole() {
             <div className="court-half home">
               <span className="court-team">
                 {s.home_team.name} {cur && <b className="court-pts">{cur.home_points}</b>}
+                {sport.key === 'basketball' && cur && (
+                  <span className={`teamfoul ${s.team_fouls.home >= 5 ? 'bonus' : ''}`}>
+                    Faul: {s.team_fouls.home}{s.team_fouls.home >= 5 ? ' · BONUS' : ''}
+                  </span>
+                )}
               </span>
             </div>
             <div className="court-net" />
             <div className="court-half away">
               <span className="court-team">
+                {sport.key === 'basketball' && cur && (
+                  <span className={`teamfoul ${s.team_fouls.away >= 5 ? 'bonus' : ''}`}>
+                    Faul: {s.team_fouls.away}{s.team_fouls.away >= 5 ? ' · BONUS' : ''}
+                  </span>
+                )}
                 {cur && <b className="court-pts">{cur.away_points}</b>} {s.away_team.name}
               </span>
             </div>

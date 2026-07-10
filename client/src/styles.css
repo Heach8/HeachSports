@@ -286,3 +286,9 @@ body { overflow-x: hidden; }
   .chip.densechip { min-width: 50px; max-width: 78px; }
   .chip.densechip .chip-name { font-size: 10px; }
 }
+
+/* --- Basketbol: takim faulu / faul dolan oyuncu --- */
+.teamfoul { font-size: 11px; font-weight: 700; background: rgba(0,0,0,.4); padding: 2px 7px; border-radius: 999px; color: #dbe3ee; }
+.teamfoul.bonus { background: var(--red); color: #fff; animation: pulse 1.5s infinite; }
+.chip.fouledout { opacity: .55; }
+.chip.fouledout .chip-head { background: rgba(218,54,51,.25); }

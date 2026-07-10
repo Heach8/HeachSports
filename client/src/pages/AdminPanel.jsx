@@ -350,13 +350,15 @@ function SeasonsTab({ flash }) {
   const [yellowLimit, setYellowLimit] = useState(2);
   const [redBan, setRedBan] = useState(true);
   const [format, setFormat] = useState('league');
+  const [foulLimit, setFoulLimit] = useState(5);
+  const [periodCount, setPeriodCount] = useState(4);
   const [groupCount, setGroupCount] = useState(2);
   const [advanceCount, setAdvanceCount] = useState(2);
   const load = () => api('/admin/seasons').then(d => setSeasons(d.seasons));
   useEffect(() => { load(); }, []);
   const add = async (e) => {
     e.preventDefault();
-    try { await api('/admin/seasons', { method: 'POST', body: { name, sport, court_size: Number(courtSize), yellow_limit: sport === 'football' ? Number(yellowLimit) : 0, red_ban: sport === 'football' ? redBan : false, format, group_count: Number(groupCount), advance_count: Number(advanceCount) } }); flash('Sezon eklendi.'); setName(''); load(); }
+    try { await api('/admin/seasons', { method: 'POST', body: { name, sport, court_size: Number(courtSize), yellow_limit: sport === 'football' ? Number(yellowLimit) : 0, red_ban: sport === 'football' ? redBan : false, format, group_count: Number(groupCount), advance_count: Number(advanceCount), foul_limit: sport === 'basketball' ? Number(foulLimit) : 0, period_count: sport === 'basketball' ? Number(periodCount) : null } }); flash('Sezon eklendi.'); setName(''); load(); }
     catch (err) { flash(err.message, false); }
   };
   const activate = async (id) => {
@@ -382,6 +384,23 @@ function SeasonsTab({ flash }) {
               <option value="knockout">Direkt Eleme</option>
             </select>
           </div>
+          {sport === 'basketball' && (
+            <>
+              <div><label>Faul Limiti (oyuncu oyun dışı)</label>
+                <select value={foulLimit} onChange={e => setFoulLimit(e.target.value)}>
+                  <option value={0}>Kural kapalı</option>
+                  <option value={5}>5 faul</option>
+                  <option value={6}>6 faul</option>
+                </select>
+              </div>
+              <div><label>Periyot Formatı</label>
+                <select value={periodCount} onChange={e => setPeriodCount(e.target.value)}>
+                  <option value={4}>4 çeyrek</option>
+                  <option value={2}>2 devre</option>
+                </select>
+              </div>
+            </>
+          )}
           {format === 'groups_knockout' && (
             <>
               <div><label>Grup Sayısı</label>
@@ -434,6 +453,9 @@ function SeasonsTab({ flash }) {
                 <td>{se.court_size || DEFAULT_COURT[se.sport] || 6}
                   {se.sport === 'football' && <div className="muted" style={{ fontSize: 11 }}>
                     {se.yellow_limit ? `${se.yellow_limit} sarı = ceza` : 'sarı kuralı yok'}{se.red_ban ? ' · kırmızı = ceza' : ''}
+                  </div>}
+                  {se.sport === 'basketball' && <div className="muted" style={{ fontSize: 11 }}>
+                    {se.foul_limit ? `${se.foul_limit} faul = oyun dışı` : 'faul limiti yok'} · {se.period_count === 2 ? '2 devre' : '4 çeyrek'}
                   </div>}
                 </td>
                 <td>{se.is_active ? <span className="badge approved">Aktif</span> : <span className="badge finished">Arşiv</span>}</td>

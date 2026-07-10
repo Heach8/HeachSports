@@ -112,19 +112,25 @@ export const SPORTS = {
       p1:      { label: 'Serbest Atış',  short: '+1',  points: 1, needsPlayer: true },
       rebound: { label: 'Ribaund',       short: 'RIB', points: 0, needsPlayer: true },
       assist:  { label: 'Asist',         short: 'AST', points: 0, needsPlayer: true },
+      steal:   { label: 'Top Çalma',     short: 'TÇ',  points: 0, needsPlayer: true },
+      block:   { label: 'Blok',          short: 'BLK', points: 0, needsPlayer: true },
       foul:    { label: 'Faul',          short: 'FL',  points: 0, needsPlayer: true }
     },
     leaders: [
       { key: 'points',   label: 'Sayı Krallığı', cond: "e.type IN ('p1','p2','p3')", sum: true },
       { key: 'threes',   label: '3 Sayılık',      cond: "e.type = 'p3'" },
       { key: 'rebounds', label: 'Ribaund',        cond: "e.type = 'rebound'" },
-      { key: 'assists',  label: 'Asist',          cond: "e.type = 'assist'" }
+      { key: 'assists',  label: 'Asist',          cond: "e.type = 'assist'" },
+      { key: 'steals',   label: 'Top Çalma',      cond: "e.type = 'steal'" },
+      { key: 'blocks',   label: 'Blok',           cond: "e.type = 'block'" }
     ],
     statCols: [
       { key: 'total_points', label: 'Sayı',  cond: "e.type IN ('p1','p2','p3')", sum: true },
       { key: 'threes',   label: "3'lük",     cond: "e.type = 'p3'" },
       { key: 'rebounds', label: 'Rib.',      cond: "e.type = 'rebound'" },
       { key: 'assists',  label: 'Asist',     cond: "e.type = 'assist'" },
+      { key: 'steals',   label: 'T.Ç.',      cond: "e.type = 'steal'" },
+      { key: 'blocks',   label: 'Blok',      cond: "e.type = 'block'" },
       { key: 'fouls',    label: 'Faul',      cond: "e.type = 'foul'" }
     ],
     ratioCols: []

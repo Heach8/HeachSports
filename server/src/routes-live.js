@@ -9,7 +9,7 @@ export const liveRouter = Router();
 const scorer = requireRole('scorekeeper', 'admin');
 
 async function matchSeason(match) {
-  return (await qGet('SELECT sport, court_size, yellow_limit, red_ban FROM seasons WHERE id = ?', [match.season_id])) || {};
+  return (await qGet('SELECT sport, court_size, yellow_limit, red_ban, foul_limit, period_count FROM seasons WHERE id = ?', [match.season_id])) || {};
 }
 
 // Bu mac icin cezali oyuncular: onceki macta kirmizi goren / sari kart sinirini asan
@@ -95,11 +95,34 @@ export async function getMatchState(matchId) {
   for (const s of sets) { totals.home += s.home_points; totals.away += s.away_points; }
   const sportCfg = sportConfigForClient(sportKey);
   const suspended = match.status === 'finished' ? {} : await computeSuspensions(match, season);
+  // Basketbol: faul limitini dolduranlar + aktif periyottaki takim faulleri
+  let fouledOut = [];
+  let teamFouls = { home: 0, away: 0 };
+  if (sportKey === 'basketball') {
+    const fl = season.foul_limit || 0;
+    if (fl > 0) {
+      fouledOut = (await qAll(
+        "SELECT player_id, COUNT(*) c FROM stat_events WHERE match_id = ? AND type = 'foul' AND player_id IS NOT NULL GROUP BY player_id HAVING COUNT(*) >= ?",
+        [matchId, fl])).map(r => r.player_id);
+    }
+    if (current) {
+      const tf = await qAll(
+        "SELECT team_id, COUNT(*) c FROM stat_events WHERE match_id = ? AND set_no = ? AND type = 'foul' GROUP BY team_id",
+        [matchId, current.set_no]);
+      for (const r of tf) {
+        if (r.team_id === match.home_team_id) teamFouls.home = r.c;
+        if (r.team_id === match.away_team_id) teamFouls.away = r.c;
+      }
+    }
+  }
   return {
     match, sport: sportCfg,
     court_size: season.court_size || sportCfg.defaultCourtSize || 6,
+    period_count: season.period_count || sportCfg.regularPeriods || null,
     suspended,
-    rules: { yellow_limit: season.yellow_limit || 0, red_ban: season.red_ban || 0 },
+    fouled_out: fouledOut,
+    team_fouls: teamFouls,
+    rules: { yellow_limit: season.yellow_limit || 0, red_ban: season.red_ban || 0, foul_limit: season.foul_limit || 0 },
     home_team: homeTeam, away_team: awayTeam,
     sets, current_set: current, totals, playerStats,
     home_roster: homeRoster, away_roster: awayRoster
@@ -141,6 +164,15 @@ liveRouter.post('/:matchId/event', scorer, ah(async (req, res) => {
     const season = await matchSeason(match);
     const susp = await computeSuspensions(match, season);
     if (susp[player_id]) return res.status(400).json({ error: 'Bu oyuncu bu macta cezali: ' + susp[player_id] });
+    // Basketbol: faul limiti dolan oyuncu oyun disi
+    if (season.sport === 'basketball' && (season.foul_limit || 0) > 0) {
+      const fc = (await qGet(
+        "SELECT COUNT(*) c FROM stat_events WHERE match_id = ? AND type = 'foul' AND player_id = ?",
+        [id, player_id])).c;
+      if (fc >= season.foul_limit) {
+        return res.status(400).json({ error: `Oyuncu ${season.foul_limit} faulle oyun dışı — değişiklik yapın` });
+      }
+    }
   }
   // Detay dogrulama (orn. golun sekli)
   let detail = null;
@@ -232,7 +264,9 @@ liveRouter.post('/:matchId/finish-set', scorer, ah(async (req, res) => {
     }
   } else {
     await qRun('UPDATE match_sets SET finished = 1 WHERE id = ?', [current.id]);
-    if (current.set_no < sport.regularPeriods) {
+    const season2 = await matchSeason(match);
+    const periods = season2.period_count || sport.regularPeriods;
+    if (current.set_no < periods) {
       await qRun('INSERT INTO match_sets (match_id, set_no) VALUES (?, ?)', [id, current.set_no + 1]);
     }
   }
