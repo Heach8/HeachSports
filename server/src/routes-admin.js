@@ -26,7 +26,7 @@ adminRouter.post('/approvals/:id/approve', ah(async (req, res) => {
       await qRun("UPDATE players SET status = 'rejected', pending_changes = NULL WHERE id = ?", [p.id]);
       return res.json({ ok: true, removed: true });
     }
-    const allowed = ['first_name','last_name','height_cm','weight_kg','jersey_no','position','photo_path'];
+    const allowed = ['first_name','last_name','height_cm','weight_kg','jersey_no','position','photo_path','national_id_hash','national_id_mask'];
     const keys = Object.keys(changes).filter(k => allowed.includes(k));
     if (keys.length) {
       const sets = keys.map(k => `${k} = ?`).join(', ');

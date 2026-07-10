@@ -61,7 +61,7 @@ function Approvals({ flash }) {
                 ? (p.pending_changes._delete
                   ? '🗑️ Silme talebi'
                   : 'Değişiklik: ' + Object.entries(p.pending_changes).map(([k, v]) => `${k}=${v}`).join(', '))
-                : `Yeni oyuncu · #${p.jersey_no ?? '-'} · ${p.position ?? '-'} · ${p.height_cm ?? '-'} cm / ${p.weight_kg ?? '-'} kg`}
+                : `Yeni oyuncu · #${p.jersey_no ?? '-'} · ${p.position ?? '-'} · ${p.height_cm ?? '-'} cm / ${p.weight_kg ?? '-'} kg${p.national_id_mask ? ' · 🪪 ' + p.national_id_mask : ''}`}
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               {p.photo_path && <a className="muted" href={p.photo_path} target="_blank" rel="noreferrer">📷 Fotoğraf</a>}

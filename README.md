@@ -82,6 +82,7 @@ Notlar:
 - **Disiplin:** Sarı/kırmızı kart ve men cezası kaydı, oyuncu profilinde görünür.
 - **Çoklu branş:** Voleybol, plaj voleybolu (2 kişilik, 21 sayılık set, 3 set üzerinden), futbol ve basketbol; her branşın kendi sezonu, kuralları, istatistik türleri ve NCL logosu varyantı vardır.
 - **İlk giriş güvenliği:** Admin geçici şifreyle kullanıcı açar; kullanıcı ilk girişte şifresini iki kez girerek (eşleşme kontrolüyle) değiştirmek zorundadır.
+- **Kimlik eşleştirme & kariyer:** Oyuncu kaydında T.C. kimlik no alınır (algoritma doğrulamalı). Numara açık halde SAKLANMAZ; geri döndürülemez özet (HMAC) olarak tutulur ve yalnızca aynı kişinin farklı turnuvalardaki kayıtlarını eşleştirmekte kullanılır. Oyuncu profilinde "Turnuva Geçmişi" tablosu turnuva turnuva istatistik ve kariyer toplamı gösterir. Aynı kimlik no aynı sezonda ikinci kez kaydedilemez (çift takım engeli).
 
 ## Proje yapısı
 ```

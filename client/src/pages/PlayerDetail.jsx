@@ -40,6 +40,34 @@ export default function PlayerDetail() {
           </tr></tbody>
         </table>
       </div>
+      {data.career.length > 0 && (
+        <div className="card">
+          <h2 style={{ marginTop: 0 }}>Turnuva Geçmişi</h2>
+          <table>
+            <thead><tr><th>Turnuva</th><th>Branş</th><th>Takım</th><th className="num">Maç</th><th className="num">Toplam Sayı</th></tr></thead>
+            <tbody>
+              {data.career.map(c => (
+                <tr key={c.player_id} style={c.player_id === player.id ? { background: 'rgba(245,158,11,.06)' } : {}}>
+                  <td>{c.player_id === player.id ? <b>{c.season_name}</b> : <Link to={`/oyuncu/${c.player_id}`}>{c.season_name}</Link>}</td>
+                  <td className="muted">{c.sport_label}</td>
+                  <td style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {c.team_logo && <img className="teamlogo sm" src={c.team_logo} alt="" />}{c.team_name}
+                  </td>
+                  <td className="num">{c.matches_played}</td>
+                  <td className="num"><b>{c.total_points}</b></td>
+                </tr>
+              ))}
+              {data.career.length > 1 && (
+                <tr style={{ borderTop: '2px solid var(--border)' }}>
+                  <td colSpan={3}><b>Kariyer Toplamı</b></td>
+                  <td className="num"><b>{data.career.reduce((a, c) => a + c.matches_played, 0)}</b></td>
+                  <td className="num"><b style={{ color: 'var(--accent)' }}>{data.career.reduce((a, c) => a + c.total_points, 0)}</b></td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
       {penalties.length > 0 && (
         <div className="card">
           <h2 style={{ marginTop: 0 }}>Disiplin</h2>

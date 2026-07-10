@@ -127,7 +127,26 @@ publicRouter.get('/players/:id', ah(async (req, res) => {
   const penalties = await qAll('SELECT * FROM penalties WHERE player_id = ? ORDER BY created_at DESC', [player.id]);
   const mvpCount = (await qGet(
     "SELECT COUNT(*) AS c FROM matches WHERE mvp_player_id = ? AND status = 'finished'", [player.id])).c;
-  res.json({ player, stats, penalties, mvp_count: mvpCount, sport: sportConfigForClient(sportKey) });
+
+  // Turnuva gecmisi: ayni kimlik numarasina (hash) sahip tum oyuncu kayitlari
+  const idRow = await qGet('SELECT national_id_hash FROM players WHERE id = ?', [player.id]);
+  let career = [];
+  if (idRow?.national_id_hash) {
+    career = await qAll(`
+      SELECT p.id AS player_id, se.name AS season_name, se.sport, t.name AS team_name, t.logo_path AS team_logo,
+        COUNT(DISTINCT e.match_id) AS matches_played,
+        COALESCE(SUM(CASE WHEN e.points > 0 THEN e.points ELSE 0 END), 0) AS total_points
+      FROM players p
+      JOIN teams t ON t.id = p.team_id
+      JOIN seasons se ON se.id = t.season_id
+      LEFT JOIN stat_events e ON e.player_id = p.id
+      WHERE p.national_id_hash = ? AND p.status = 'approved'
+      GROUP BY p.id, se.name, se.sport, t.name, t.logo_path
+      ORDER BY se.id DESC
+    `, [idRow.national_id_hash]);
+    career = career.map(c => ({ ...c, sport_label: sportOf(c.sport).label }));
+  }
+  res.json({ player, stats, penalties, mvp_count: mvpCount, sport: sportConfigForClient(sportKey), career });
 }));
 
 publicRouter.get('/leaders', ah(async (req, res) => {

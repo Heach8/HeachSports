@@ -1,6 +1,6 @@
 // Veritabani katmani: DATABASE_URL varsa PostgreSQL (Supabase), yoksa SQLite.
 // Tum sorgular async yardimcilarla calisir: qAll, qGet, qRun, qInsert
-import { scryptSync, randomBytes, timingSafeEqual } from 'node:crypto';
+import { scryptSync, randomBytes, timingSafeEqual, createHmac } from 'node:crypto';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -162,6 +162,8 @@ CREATE TABLE IF NOT EXISTS players (
   photo_path TEXT,
   eligibility_doc_path TEXT,
   kvkk_consent INTEGER NOT NULL DEFAULT 0,
+  national_id_hash TEXT,
+  national_id_mask TEXT,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
   pending_changes TEXT,
   created_at TEXT NOT NULL DEFAULT ${NOW}
@@ -215,6 +217,33 @@ CREATE INDEX IF NOT EXISTS idx_matches_season ON matches (season_id);
 export async function initSchema() {
   if (IS_PG) await pool.query(SCHEMA);
   else sqlite.exec(SCHEMA);
+  // Sonradan eklenen kolonlar (zaten varsa hata sessizce yutulur)
+  for (const stmt of [
+    'ALTER TABLE players ADD COLUMN national_id_hash TEXT',
+    'ALTER TABLE players ADD COLUMN national_id_mask TEXT'
+  ]) {
+    try { IS_PG ? await pool.query(stmt) : sqlite.exec(stmt); } catch {}
+  }
+}
+
+// --- TC Kimlik No: dogrulama + geri dondurulemez ozet (KVKK: acik halde saklanmaz) ---
+export function validateNationalId(tc) {
+  if (!/^[1-9][0-9]{10}$/.test(tc)) return false;
+  const d = tc.split('').map(Number);
+  const odd = d[0] + d[2] + d[4] + d[6] + d[8];
+  const even = d[1] + d[3] + d[5] + d[7];
+  if (((odd * 7 - even) % 10 + 10) % 10 !== d[9]) return false;
+  if (d.slice(0, 10).reduce((a, b) => a + b, 0) % 10 !== d[10]) return false;
+  return true;
+}
+
+export function hashNationalId(tc) {
+  const pepper = process.env.ID_PEPPER || process.env.SESSION_SECRET || 'ncl-kimlik-tuzu';
+  return createHmac('sha256', pepper).update(String(tc)).digest('hex');
+}
+
+export function maskNationalId(tc) {
+  return tc.slice(0, 2) + '*******' + tc.slice(-2);
 }
 
 // --- Sifreleme (node:crypto scrypt) ---

@@ -10,7 +10,7 @@ const POSITIONS_BY_SPORT = {
 };
 const STATUS_LABEL = { pending: 'Onay Bekliyor', approved: 'Onaylı', rejected: 'Reddedildi' };
 
-const emptyForm = { first_name: '', last_name: '', height_cm: '', weight_kg: '', jersey_no: '', position: '' };
+const emptyForm = { first_name: '', last_name: '', height_cm: '', weight_kg: '', jersey_no: '', position: '', national_id: '' };
 
 export default function CaptainPanel() {
   const { user } = useAuth();
@@ -65,7 +65,7 @@ export default function CaptainPanel() {
     setForm({
       first_name: p.first_name, last_name: p.last_name,
       height_cm: p.height_cm || '', weight_kg: p.weight_kg || '',
-      jersey_no: p.jersey_no || '', position: p.position || ''
+      jersey_no: p.jersey_no || '', position: p.position || '', national_id: ''
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -87,6 +87,11 @@ export default function CaptainPanel() {
           <div className="formrow">
             <div><label>Ad *</label><input value={form.first_name} onChange={set('first_name')} required /></div>
             <div><label>Soyad *</label><input value={form.last_name} onChange={set('last_name')} required /></div>
+            <div><label>T.C. Kimlik No *</label>
+              <input value={form.national_id} onChange={set('national_id')} required={!editing}
+                inputMode="numeric" maxLength={11} placeholder="11 haneli"
+                style={form.national_id && form.national_id.length !== 11 ? { borderColor: 'var(--red)' } : {}} />
+            </div>
             <div><label>Boy (cm)</label><input type="number" value={form.height_cm} onChange={set('height_cm')} /></div>
             <div><label>Kilo (kg)</label><input type="number" value={form.weight_kg} onChange={set('weight_kg')} /></div>
             <div><label>Forma No</label><input type="number" value={form.jersey_no} onChange={set('jersey_no')} /></div>
@@ -106,7 +111,7 @@ export default function CaptainPanel() {
           {!editing && (
             <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 12, fontSize: 13 }}>
               <input type="checkbox" style={{ width: 'auto' }} checked={kvkk} onChange={e => setKvkk(e.target.checked)} />
-              Oyuncunun kişisel bilgilerinin ve fotoğrafının platformda yayınlanması için açık rızası alınmıştır (KVKK). *
+              Oyuncunun kişisel bilgilerinin ve fotoğrafının platformda yayınlanması için açık rızası alınmıştır (KVKK). Kimlik numarası yayınlanmaz; yalnızca oyuncunun farklı turnuvalardaki kayıtlarını eşleştirmek için geri döndürülemez şekilde şifrelenerek saklanır. *
             </label>
           )}
           <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
@@ -124,6 +129,8 @@ export default function CaptainPanel() {
               <tr key={p.id}>
                 <td>{p.jersey_no}</td>
                 <td>{p.first_name} {p.last_name}
+                  {p.national_id_mask && <div className="muted">🪪 {p.national_id_mask}</div>}
+                  {!p.national_id_mask && <div className="muted" style={{ color: 'var(--accent2)' }}>Kimlik no eksik — düzenleyip ekleyin</div>}
                   {p.pending_changes && <div className="muted">⏳ {p.pending_changes._delete ? 'Silme talebi' : 'Değişiklik'} onay bekliyor</div>}
                 </td>
                 <td>{p.position}</td>
