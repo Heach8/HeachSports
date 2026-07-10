@@ -21,7 +21,7 @@ const COMPANIES = [
 const SPORT_SETUP = {
   volleyball: { seasonName: '2026 Bahar Sezonu - Voleybol', squad: 8, positions: ['Pasör', 'Smaçör', 'Orta Oyuncu', 'Libero', 'Pasör Çaprazı', 'Smaçör', 'Orta Oyuncu', 'Smaçör'] },
   beach_volleyball: { seasonName: '2026 Yaz Sezonu - Plaj Voleybolu', squad: 4, positions: ['Defans', 'Blokçu', 'Defans', 'Blokçu'] },
-  football:   { seasonName: '2026 Bahar Sezonu - Futbol',   squad: 9, positions: ['Kaleci', 'Defans', 'Defans', 'Orta Saha', 'Orta Saha', 'Forvet', 'Forvet', 'Defans', 'Orta Saha'] },
+  football:   { seasonName: '2026 Bahar Sezonu - Futbol',   squad: 13, positions: ['Kaleci', 'Defans', 'Defans', 'Defans', 'Defans', 'Orta Saha', 'Orta Saha', 'Orta Saha', 'Orta Saha', 'Forvet', 'Forvet', 'Defans', 'Orta Saha'] },
   basketball: { seasonName: '2026 Bahar Sezonu - Basketbol', squad: 7, positions: ['Oyun Kurucu', 'Şutör Guard', 'Kısa Forvet', 'Uzun Forvet', 'Pivot', 'Guard', 'Forvet'] }
 };
 

@@ -19,6 +19,14 @@ function defaultPositions(count, sportKey) {
     return [[72, 22], [72, 50], [72, 78], [34, 22], [34, 50], [34, 78]].concat(extraGrid(count - 6));
   }
   if (sportKey === 'football') {
+    // Kisi sayisina gore gercekci dizilimler (8: 3-3-1, 9: 3-3-2, 10: 4-3-2, 11: 4-4-2)
+    const FORMATIONS = {
+      8:  [[12, 50], [30, 25], [30, 50], [30, 75], [52, 25], [52, 50], [52, 75], [76, 50]],
+      9:  [[12, 50], [30, 25], [30, 50], [30, 75], [52, 25], [52, 50], [52, 75], [74, 35], [74, 65]],
+      10: [[12, 50], [28, 15], [28, 40], [28, 60], [28, 85], [52, 25], [52, 50], [52, 75], [76, 35], [76, 65]],
+      11: [[12, 50], [28, 15], [28, 40], [28, 60], [28, 85], [52, 15], [52, 40], [52, 60], [52, 85], [76, 35], [76, 65]]
+    };
+    if (FORMATIONS[count]) return FORMATIONS[count];
     const spots = [[10, 50], [32, 25], [32, 75], [52, 50], [66, 25], [66, 75], [82, 50], [45, 25], [45, 75]];
     return spots.slice(0, count).concat(extraGrid(Math.max(0, count - spots.length)));
   }
@@ -41,6 +49,8 @@ export default function LiveConsole() {
   const [error, setError] = useState('');
   const [mvpId, setMvpId] = useState('');
   const [goalModal, setGoalModal] = useState(null); // { side, player, et } gol detay/asist secimi
+  const [actionModal, setActionModal] = useState(null); // yogun modda oyuncu aksiyon paneli
+  const dragMovedRef = useRef(false); // tiklama ile suruklemeyi ayirt et
   const [positions, setPositions] = useState({});   // { playerId: {x, y} } tum saha %
   const [lineup, setLineup] = useState(null);        // { home: [ids], away: [ids] }
   const [benchDrag, setBenchDrag] = useState(null);  // { id, side, cx, cy }
@@ -130,6 +140,7 @@ export default function LiveConsole() {
   const onDragStart = (e, playerId) => {
     e.preventDefault();
     dragRef.current = playerId;
+    dragMovedRef.current = false;
     dragOriginRef.current = positions[playerId] ? { ...positions[playerId] } : null;
     e.target.setPointerCapture?.(e.pointerId);
   };
@@ -139,6 +150,7 @@ export default function LiveConsole() {
       return;
     }
     if (!dragRef.current || !courtRef.current) return;
+    dragMovedRef.current = true;
     const r = courtRef.current.getBoundingClientRect();
     setPositions(prev => ({ ...prev, [dragRef.current]: pointerToPos(e, r) }));
   };
@@ -219,6 +231,8 @@ export default function LiveConsole() {
   const playerEvents = sport.eventTypes.filter(et => et.needsPlayer);
   const teamEvents = sport.eventTypes.filter(et => !et.needsPlayer);
   const canScore = m.status === 'live' && !!cur;
+  // Futbolda saha ici 7'den fazlaysa: kompakt kartlar + buyuk saha (butonlar panele tasinir)
+  const dense = sport.key === 'football' && (s.court_size || sport.defaultCourtSize || 7) > 7;
 
   let canFinish = false;
   if (m.status === 'live') {
@@ -256,6 +270,20 @@ export default function LiveConsole() {
     const sc = toScreen(pos);
     const st = statOf(p.id);
     const total = st ? (st.total_points ?? st.goals ?? 0) : 0;
+    if (dense) {
+      // Kompakt kart: butonlar dokununca acilan panelde
+      return (
+        <div key={p.id} className={`chip densechip ${side}`} style={{ left: sc.left + '%', top: sc.top + '%' }}>
+          <div className="chip-head" onPointerDown={(e) => onDragStart(e, p.id)}
+            onClick={() => { if (dragMovedRef.current) { dragMovedRef.current = false; return; } canScore && setActionModal({ side, player: p }); }}
+            title="Sürükle: taşı · Dokun: istatistik gir">
+            <span className="chip-no">{p.jersey_no}</span>
+            <span className="chip-name">{p.last_name}</span>
+            {total > 0 && <span className="chip-total">{total}</span>}
+          </div>
+        </div>
+      );
+    }
     return (
       <div key={p.id} className={`chip ${side}`} style={{ left: sc.left + '%', top: sc.top + '%' }}>
         <div className="chip-head" onPointerDown={(e) => onDragStart(e, p.id)} title="Sürükleyerek taşıyın">
@@ -360,7 +388,7 @@ export default function LiveConsole() {
       {m.status !== 'finished' && (
         <div className="console-wrap" onPointerMove={onDragMove} onPointerUp={onDragEnd} onPointerLeave={onDragEnd}>
           {bench('home')}
-          <div className={`court ${sport.key} ${portrait ? 'portrait' : ''}`} ref={courtRef}>
+          <div className={`court ${sport.key} ${portrait ? 'portrait' : ''} ${dense ? 'dense' : ''}`} ref={courtRef}>
             <div className="court-half home">
               <span className="court-team">
                 {s.home_team.name} {cur && <b className="court-pts">{cur.home_points}</b>}
@@ -386,6 +414,31 @@ export default function LiveConsole() {
             <span className="chip-no">{p.jersey_no}</span> {p.first_name} {p.last_name.charAt(0)}.
           </div>
         ) : null;
+      })()}
+
+      {actionModal && (() => {
+        const p = actionModal.player;
+        return (
+          <div className="goal-modal-backdrop" onClick={() => setActionModal(null)}>
+            <div className="goal-modal card" onClick={e => e.stopPropagation()}>
+              <h2 style={{ marginTop: 0 }}>#{p.jersey_no} {p.first_name} {p.last_name}</h2>
+              <div className="action-grid">
+                {playerEvents.map(et => (
+                  <button key={et.key}
+                    className={`btn big ${et.points > 0 ? 'green' : et.key.includes('red') ? 'red' : ''}`}
+                    onClick={() => {
+                      setActionModal(null);
+                      if (et.details) setGoalModal({ side: actionModal.side, player: p, et, detail: et.details[0].key, assist: '' });
+                      else call('/event', { team: actionModal.side, type: et.key, player_id: p.id });
+                    }}>
+                    {et.label}{et.points > 0 ? ` +${et.points}` : ''}
+                  </button>
+                ))}
+              </div>
+              <button className="btn" style={{ marginTop: 10, width: '100%' }} onClick={() => setActionModal(null)}>Vazgeç</button>
+            </div>
+          </div>
+        );
       })()}
 
       {goalModal && (() => {
