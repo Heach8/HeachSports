@@ -3,24 +3,28 @@ import { Link, useParams } from 'react-router-dom';
 import { api, subscribeLive } from '../api.js';
 import { useAuth } from '../App.jsx';
 
-// Sahada ayni anda bulunan oyuncu sayisi
-const COURT_SIZE = { volleyball: 6, beach_volleyball: 2, football: 7, basketball: 5 };
-
-// Sahadaki varsayilan dizilim: yari saha icinde % konumlar
+// Sahadaki varsayilan dizilim: yari saha icinde % konumlar (turnuvanin saha ici sayisina gore)
 function defaultPositions(count, sportKey) {
-  if (sportKey === 'volleyball' && count >= 6) {
+  // Kucuk kadrolar (plaj 2/3/4 vb.) icin genel dizilimler
+  const SMALL = {
+    2: [[62, 32], [40, 68]],
+    3: [[66, 25], [40, 50], [66, 75]],
+    4: [[66, 28], [66, 72], [38, 28], [38, 72]],
+    5: [[68, 25], [68, 75], [44, 50], [30, 28], [30, 72]]
+  };
+  if (count <= 5 && SMALL[count] && (sportKey === 'volleyball' || sportKey === 'beach_volleyball')) {
+    return SMALL[count];
+  }
+  if ((sportKey === 'volleyball' || sportKey === 'beach_volleyball') && count >= 6) {
     return [[72, 22], [72, 50], [72, 78], [34, 22], [34, 50], [34, 78]].concat(extraGrid(count - 6));
   }
-  if (sportKey === 'beach_volleyball') {
-    return [[62, 32], [40, 68]].concat(extraGrid(Math.max(0, count - 2)));
-  }
   if (sportKey === 'football') {
-    const spots = [[10, 50], [32, 25], [32, 75], [52, 50], [66, 25], [66, 75], [82, 50]];
-    return spots.slice(0, count).concat(extraGrid(Math.max(0, count - 7)));
+    const spots = [[10, 50], [32, 25], [32, 75], [52, 50], [66, 25], [66, 75], [82, 50], [45, 25], [45, 75]];
+    return spots.slice(0, count).concat(extraGrid(Math.max(0, count - spots.length)));
   }
   if (sportKey === 'basketball') {
-    const spots = [[30, 50], [52, 22], [52, 78], [74, 34], [74, 66]];
-    return spots.slice(0, count).concat(extraGrid(Math.max(0, count - 5)));
+    const spots = [[30, 50], [52, 22], [52, 78], [74, 34], [74, 66], [40, 30], [40, 70]];
+    return spots.slice(0, count).concat(extraGrid(Math.max(0, count - spots.length)));
   }
   return extraGrid(count);
 }
@@ -87,7 +91,7 @@ export default function LiveConsole() {
   // Kadro geldiginde: ilk N oyuncu sahada, kalani yedek; konumsuzlari yerlestir
   useEffect(() => {
     if (!s) return;
-    const size = COURT_SIZE[s.sport.key] || 6;
+    const size = s.court_size || s.sport.defaultCourtSize || 6;
     setLineup(prevLu => {
       const lu = { home: [...(prevLu?.home || [])], away: [...(prevLu?.away || [])] };
       const fix = (roster, key) => {

@@ -340,15 +340,18 @@ function SettingsTab({ flash }) {
 }
 
 
+const DEFAULT_COURT = { volleyball: 6, beach_volleyball: 2, football: 7, basketball: 5 };
+
 function SeasonsTab({ flash }) {
   const [seasons, setSeasons] = useState([]);
   const [name, setName] = useState('');
   const [sport, setSport] = useState('volleyball');
+  const [courtSize, setCourtSize] = useState(DEFAULT_COURT.volleyball);
   const load = () => api('/admin/seasons').then(d => setSeasons(d.seasons));
   useEffect(() => { load(); }, []);
   const add = async (e) => {
     e.preventDefault();
-    try { await api('/admin/seasons', { method: 'POST', body: { name, sport } }); flash('Sezon eklendi.'); setName(''); load(); }
+    try { await api('/admin/seasons', { method: 'POST', body: { name, sport, court_size: Number(courtSize) } }); flash('Sezon eklendi.'); setName(''); load(); }
     catch (err) { flash(err.message, false); }
   };
   const activate = async (id) => {
@@ -363,22 +366,28 @@ function SeasonsTab({ flash }) {
         <form onSubmit={add} className="formrow">
           <div><label>Sezon Adı *</label><input value={name} onChange={e => setName(e.target.value)} required placeholder="örn. 2026 Güz Sezonu" /></div>
           <div><label>Branş</label>
-            <select value={sport} onChange={e => setSport(e.target.value)}>
+            <select value={sport} onChange={e => { setSport(e.target.value); setCourtSize(DEFAULT_COURT[e.target.value] || 6); }}>
               {SPORT_OPTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+            </select>
+          </div>
+          <div><label>Saha İçi Oyuncu Sayısı</label>
+            <select value={courtSize} onChange={e => setCourtSize(e.target.value)}>
+              {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(n => <option key={n} value={n}>{n} oyuncu</option>)}
             </select>
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end' }}><button className="btn primary">Ekle</button></div>
         </form>
-        <p className="muted" style={{ marginTop: 8 }}>Her branşın kendi aktif sezonu vardır; yeni sezonu aktifleştirince aynı branşın önceki sezonu arşive düşer.</p>
+        <p className="muted" style={{ marginTop: 8 }}>Her branşın kendi aktif sezonu vardır; yeni sezonu aktifleştirince öncekisi arşive düşer. Saha içi sayısı maç konsolundaki dizilimi belirler (örn. plaj voleybolu 2, 3 veya 4 kişilik oynanabilir); geri kalan oyuncular yedek kulübesinde görünür.</p>
       </div>
       <div className="card">
         <table>
-          <thead><tr><th>Sezon</th><th>Branş</th><th>Durum</th><th></th></tr></thead>
+          <thead><tr><th>Sezon</th><th>Branş</th><th>Saha İçi</th><th>Durum</th><th></th></tr></thead>
           <tbody>
             {seasons.map(se => (
               <tr key={se.id}>
                 <td><b>{se.name}</b></td>
                 <td>{L[se.sport]}</td>
+                <td>{se.court_size || DEFAULT_COURT[se.sport] || 6}</td>
                 <td>{se.is_active ? <span className="badge approved">Aktif</span> : <span className="badge finished">Arşiv</span>}</td>
                 <td style={{ textAlign: 'right' }}>
                   {!se.is_active && <button className="btn sm" onClick={() => activate(se.id)}>Aktifleştir</button>}

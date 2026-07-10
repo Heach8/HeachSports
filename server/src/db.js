@@ -131,6 +131,7 @@ CREATE TABLE IF NOT EXISTS seasons (
   id ${PK},
   name TEXT NOT NULL,
   sport TEXT NOT NULL DEFAULT 'volleyball' CHECK (sport IN ('volleyball','beach_volleyball','football','basketball')),
+  court_size INTEGER,
   is_active INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS teams (
@@ -220,7 +221,8 @@ export async function initSchema() {
   // Sonradan eklenen kolonlar (zaten varsa hata sessizce yutulur)
   for (const stmt of [
     'ALTER TABLE players ADD COLUMN national_id_hash TEXT',
-    'ALTER TABLE players ADD COLUMN national_id_mask TEXT'
+    'ALTER TABLE players ADD COLUMN national_id_mask TEXT',
+    'ALTER TABLE seasons ADD COLUMN court_size INTEGER'
   ]) {
     try { IS_PG ? await pool.query(stmt) : sqlite.exec(stmt); } catch {}
   }

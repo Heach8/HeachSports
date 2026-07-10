@@ -7,9 +7,12 @@ import { sportOf, sportConfigForClient, isSetBased } from './sports.js';
 export const liveRouter = Router();
 const scorer = requireRole('scorekeeper', 'admin');
 
+async function matchSeason(match) {
+  return (await qGet('SELECT sport, court_size FROM seasons WHERE id = ?', [match.season_id])) || {};
+}
+
 async function matchSport(match) {
-  const season = await qGet('SELECT sport FROM seasons WHERE id = ?', [match.season_id]);
-  return season?.sport || 'volleyball';
+  return (await matchSeason(match)).sport || 'volleyball';
 }
 
 function statColsSelect(sportKey) {
@@ -24,7 +27,8 @@ function statColsSelect(sportKey) {
 export async function getMatchState(matchId) {
   const match = await qGet('SELECT * FROM matches WHERE id = ?', [matchId]);
   if (!match) return null;
-  const sportKey = await matchSport(match);
+  const season = await matchSeason(match);
+  const sportKey = season.sport || 'volleyball';
   const roster = (teamId) => qAll(
     "SELECT id, first_name, last_name, jersey_no FROM players WHERE team_id = ? AND status = 'approved' ORDER BY jersey_no",
     [teamId]);
@@ -44,8 +48,10 @@ export async function getMatchState(matchId) {
   const current = sets.find(s => !s.finished) || null;
   let totals = { home: 0, away: 0 };
   for (const s of sets) { totals.home += s.home_points; totals.away += s.away_points; }
+  const sportCfg = sportConfigForClient(sportKey);
   return {
-    match, sport: sportConfigForClient(sportKey),
+    match, sport: sportCfg,
+    court_size: season.court_size || sportCfg.defaultCourtSize || 6,
     home_team: homeTeam, away_team: awayTeam,
     sets, current_set: current, totals, playerStats,
     home_roster: homeRoster, away_roster: awayRoster

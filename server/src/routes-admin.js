@@ -57,10 +57,12 @@ adminRouter.get('/seasons', ah(async (req, res) => {
   res.json({ seasons: await qAll('SELECT * FROM seasons ORDER BY id DESC') });
 }));
 adminRouter.post('/seasons', ah(async (req, res) => {
-  const { name, sport } = req.body;
+  const { name, sport, court_size } = req.body;
   if (!name) return res.status(400).json({ error: 'Sezon adi gerekli' });
   if (!SPORT_KEYS.includes(sport)) return res.status(400).json({ error: 'Gecersiz brans' });
-  const id = await qInsert('INSERT INTO seasons (name, sport, is_active) VALUES (?, ?, 0)', [name, sport]);
+  let cs = Number(court_size) || null;
+  if (cs !== null && (cs < 2 || cs > 11)) return res.status(400).json({ error: 'Saha ici oyuncu sayisi 2-11 arasinda olmali' });
+  const id = await qInsert('INSERT INTO seasons (name, sport, court_size, is_active) VALUES (?, ?, ?, 0)', [name, sport, cs]);
   res.json({ id });
 }));
 adminRouter.post('/seasons/:id/activate', ah(async (req, res) => {

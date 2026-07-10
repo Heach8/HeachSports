@@ -34,6 +34,7 @@ const VOLLEY_RATIOCOLS = [{ key: 'rec_pct', label: 'Karşılama %', ok: 'rec_ok'
 export const SPORTS = {
   volleyball: {
     label: 'Voleybol',
+    defaultCourtSize: 6,
     periodName: 'Set',
     winnerBy: 'periods',
     regularPeriods: null,
@@ -47,6 +48,7 @@ export const SPORTS = {
   },
   beach_volleyball: {
     label: 'Plaj Voleybolu',
+    defaultCourtSize: 2,
     periodName: 'Set',
     winnerBy: 'periods',
     regularPeriods: null,
@@ -60,6 +62,7 @@ export const SPORTS = {
   },
   football: {
     label: 'Futbol',
+    defaultCourtSize: 7,
     periodName: 'Devre',
     winnerBy: 'points',
     regularPeriods: 2,
@@ -90,6 +93,7 @@ export const SPORTS = {
   },
   basketball: {
     label: 'Basketbol',
+    defaultCourtSize: 5,
     periodName: 'Çeyrek',
     winnerBy: 'points',
     regularPeriods: 4,
@@ -134,6 +138,7 @@ export function sportConfigForClient(key) {
   const s = sportOf(key);
   return {
     key, label: s.label, periodName: s.periodName,
+    defaultCourtSize: s.defaultCourtSize,
     winnerBy: s.winnerBy, regularPeriods: s.regularPeriods, allowDraw: s.allowDraw,
     setTarget: s.setTarget || null, lastSetTarget: s.lastSetTarget || null,
     eventTypes: Object.entries(s.eventTypes).map(([k, v]) => ({ key: k, ...v })),
