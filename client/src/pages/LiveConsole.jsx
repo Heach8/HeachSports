@@ -254,15 +254,15 @@ export default function LiveConsole() {
   };
   const suspOf = (pid) => (s.suspended || {})[pid];
 
-  // On planda: aktif set/periyot skoru
-  const bigHome = cur ? cur.home_points : (isSetBased ? m.home_sets : s.totals.home);
-  const bigAway = cur ? cur.away_points : (isSetBased ? m.away_sets : s.totals.away);
+  // On planda: set-bazli sporlarda aktif set skoru; futbol/basketbolda TOPLAM skor
+  const bigHome = isSetBased ? (cur ? cur.home_points : m.home_sets) : s.totals.home;
+  const bigAway = isSetBased ? (cur ? cur.away_points : m.away_sets) : s.totals.away;
   const bigLabel = m.status === 'finished' ? 'MAÇ SONU'
     : cur ? `${cur.set_no}. ${sport.periodName.toUpperCase()}`
     : m.status === 'live' ? `${sport.periodName.toUpperCase()} ARASI` : 'BAŞLAMADI';
   const subScore = isSetBased
     ? `Setler: ${m.home_sets} - ${m.away_sets}`
-    : `Toplam: ${s.totals.home} - ${s.totals.away}`;
+    : (cur ? `Bu ${sport.periodName.toLowerCase()}: ${cur.home_points} - ${cur.away_points}` : `Toplam: ${s.totals.home} - ${s.totals.away}`);
   const periodHistory = s.sets.filter(x => x.finished).map(x => `${x.home_points}-${x.away_points}`).join(' · ');
 
   const chip = (p, side) => {
