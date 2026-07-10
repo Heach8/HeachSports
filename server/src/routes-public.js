@@ -34,9 +34,12 @@ async function matchWithNames(m) {
 async function stageLabels(seasonId, matches) {
   // Eleme turlari icin etiket (Ceyrek Final vb.), gruplar icin "A Grubu"
   const labels = {};
+  const season = await qGet('SELECT two_legged FROM seasons WHERE id = ?', [seasonId]);
+  const twoLegged = !!season?.two_legged;
   const koRounds = [...new Set(matches.filter(m => m.stage === 'knockout').map(m => m.round))].sort((a, b) => a - b);
   for (const r of koRounds) {
-    const cnt = matches.filter(m => m.stage === 'knockout' && m.round === r).length;
+    let cnt = matches.filter(m => m.stage === 'knockout' && m.round === r).length;
+    if (twoLegged) cnt = Math.ceil(cnt / 2);
     labels['ko' + r] = knockoutLabel(cnt * 2);
   }
   let groupOf = {};
@@ -45,7 +48,10 @@ async function stageLabels(seasonId, matches) {
     groupOf = Object.fromEntries(rows.map(t => [t.id, t.group_name]));
   }
   return matches.map(m => {
-    if (m.stage === 'knockout') return { ...m, stage_label: labels['ko' + m.round] };
+    if (m.stage === 'knockout') {
+      const legTag = m.leg === 1 ? ' · 1. Maç' : m.leg === 2 ? ' · Rövanş' : '';
+      return { ...m, stage_label: labels['ko' + m.round] + legTag };
+    }
     if (m.stage === 'group') return { ...m, stage_label: `${groupOf[m.home_team_id] || '?'} Grubu · ${m.round}. Hafta`, group_name: groupOf[m.home_team_id] };
     return { ...m, stage_label: `${m.round}. Hafta` };
   });

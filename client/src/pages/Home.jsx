@@ -22,6 +22,7 @@ export function MatchRow({ m }) {
         <TeamBadge name={m.home_team} logo={m.home_logo} />
         <span className="score">
           {m.status === 'scheduled' ? 'vs' : `${m.home_sets} - ${m.away_sets}`}
+          {m.shootout_home != null && <span className="livedetail" style={{ color: 'var(--accent)' }}>P: {m.shootout_home}-{m.shootout_away}</span>}
           {m.status === 'live' && m.live_detail && <span className="livedetail">{m.live_detail}</span>}
         </span>
         <TeamBadge name={m.away_team} logo={m.away_logo} right />

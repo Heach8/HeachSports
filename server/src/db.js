@@ -136,6 +136,7 @@ CREATE TABLE IF NOT EXISTS seasons (
   red_ban INTEGER,
   foul_limit INTEGER,
   period_count INTEGER,
+  two_legged INTEGER,
   format TEXT NOT NULL DEFAULT 'league' CHECK (format IN ('league','groups_knockout','knockout')),
   group_count INTEGER,
   advance_count INTEGER,
@@ -190,6 +191,9 @@ CREATE TABLE IF NOT EXISTS matches (
   away_sets INTEGER NOT NULL DEFAULT 0,
   best_of INTEGER NOT NULL DEFAULT 5,
   stage TEXT NOT NULL DEFAULT 'league',
+  leg INTEGER,
+  shootout_home INTEGER,
+  shootout_away INTEGER,
   mvp_player_id INTEGER REFERENCES players(id)
 );
 CREATE TABLE IF NOT EXISTS match_sets (
@@ -245,6 +249,10 @@ export async function initSchema() {
     'ALTER TABLE seasons ADD COLUMN knockout_byes TEXT',
     'ALTER TABLE seasons ADD COLUMN foul_limit INTEGER',
     'ALTER TABLE seasons ADD COLUMN period_count INTEGER',
+    'ALTER TABLE seasons ADD COLUMN two_legged INTEGER',
+    'ALTER TABLE matches ADD COLUMN leg INTEGER',
+    'ALTER TABLE matches ADD COLUMN shootout_home INTEGER',
+    'ALTER TABLE matches ADD COLUMN shootout_away INTEGER',
     'ALTER TABLE teams ADD COLUMN group_name TEXT',
     "ALTER TABLE matches ADD COLUMN stage TEXT NOT NULL DEFAULT 'league'"
   ]) {

@@ -351,6 +351,7 @@ function SeasonsTab({ flash }) {
   const [redBan, setRedBan] = useState(true);
   const [format, setFormat] = useState('league');
   const [foulLimit, setFoulLimit] = useState(5);
+  const [twoLegged, setTwoLegged] = useState(false);
   const [periodCount, setPeriodCount] = useState(4);
   const [groupCount, setGroupCount] = useState(2);
   const [advanceCount, setAdvanceCount] = useState(2);
@@ -358,7 +359,7 @@ function SeasonsTab({ flash }) {
   useEffect(() => { load(); }, []);
   const add = async (e) => {
     e.preventDefault();
-    try { await api('/admin/seasons', { method: 'POST', body: { name, sport, court_size: Number(courtSize), yellow_limit: sport === 'football' ? Number(yellowLimit) : 0, red_ban: sport === 'football' ? redBan : false, format, group_count: Number(groupCount), advance_count: Number(advanceCount), foul_limit: sport === 'basketball' ? Number(foulLimit) : 0, period_count: sport === 'basketball' ? Number(periodCount) : null } }); flash('Sezon eklendi.'); setName(''); load(); }
+    try { await api('/admin/seasons', { method: 'POST', body: { name, sport, court_size: Number(courtSize), yellow_limit: sport === 'football' ? Number(yellowLimit) : 0, red_ban: sport === 'football' ? redBan : false, format, group_count: Number(groupCount), advance_count: Number(advanceCount), foul_limit: sport === 'basketball' ? Number(foulLimit) : 0, period_count: sport === 'basketball' ? Number(periodCount) : null, two_legged: format !== 'league' && twoLegged } }); flash('Sezon eklendi.'); setName(''); load(); }
     catch (err) { flash(err.message, false); }
   };
   const activate = async (id) => {
@@ -400,6 +401,14 @@ function SeasonsTab({ flash }) {
                 </select>
               </div>
             </>
+          )}
+          {format !== 'league' && (
+            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+              <label style={{ display: 'flex', gap: 6, alignItems: 'center', margin: 0, fontSize: 13 }}>
+                <input type="checkbox" style={{ width: 'auto' }} checked={twoLegged} onChange={e => setTwoLegged(e.target.checked)} />
+                Elemeler rövanşlı (iki maçlı, toplam skor)
+              </label>
+            </div>
           )}
           {format === 'groups_knockout' && (
             <>

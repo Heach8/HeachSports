@@ -13,11 +13,39 @@ export function knockoutLabel(teamCount) {
 const shuffle = (a) => { const x = [...a]; for (let i = x.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [x[i], x[j]] = [x[j], x[i]]; } return x; };
 
 async function insertKnockoutMatches(season, pairs, round, bestOf) {
+  const twoLegged = !!season.two_legged;
   for (const [h, a] of pairs) {
     await qRun(
-      "INSERT INTO matches (season_id, round, home_team_id, away_team_id, best_of, stage) VALUES (?, ?, ?, ?, ?, 'knockout')",
-      [season.id, round, h, a, bestOf]);
+      "INSERT INTO matches (season_id, round, home_team_id, away_team_id, best_of, stage, leg) VALUES (?, ?, ?, ?, ?, 'knockout', ?)",
+      [season.id, round, h, a, bestOf, twoLegged ? 1 : null]);
+    if (twoLegged) {
+      await qRun(
+        "INSERT INTO matches (season_id, round, home_team_id, away_team_id, best_of, stage, leg) VALUES (?, ?, ?, ?, ?, 'knockout', 2)",
+        [season.id, round, a, h, bestOf]);
+    }
   }
+}
+
+// Eleme macinda/eslesmesinde kazanani belirle
+export function matchWinner(m) {
+  if (m.home_sets !== m.away_sets) return m.home_sets > m.away_sets ? m.home_team_id : m.away_team_id;
+  if (m.shootout_home != null && m.shootout_away != null && m.shootout_home !== m.shootout_away) {
+    return m.shootout_home > m.shootout_away ? m.home_team_id : m.away_team_id;
+  }
+  return null;
+}
+
+// Rovansli eslesme: toplam skor, esitlikte rovans macinin penaltilari
+export function tieWinner(leg1, leg2) {
+  const teamA = leg1.home_team_id, teamB = leg1.away_team_id;
+  const aggA = leg1.home_sets + leg2.away_sets;
+  const aggB = leg1.away_sets + leg2.home_sets;
+  if (aggA !== aggB) return aggA > aggB ? teamA : teamB;
+  // Toplam esit: yalnizca rovans macinin penalti serisi belirler
+  if (leg2.shootout_home != null && leg2.shootout_away != null && leg2.shootout_home !== leg2.shootout_away) {
+    return leg2.shootout_home > leg2.shootout_away ? leg2.home_team_id : leg2.away_team_id;
+  }
+  return null;
 }
 
 // Direkt eleme: 1. tur (guc-2 degilse fazla takimlar on eleme oynar, digerleri bay gecer)
@@ -89,9 +117,25 @@ export async function advanceAfterFinish(matchId) {
       "SELECT * FROM matches WHERE season_id = ? AND stage = 'knockout' AND round = ?", [season.id, match.round]);
     if (roundMatches.some(m => m.status !== 'finished')) return null;
     // Kazananlar (mac sirasiyla) + varsa bay gecenler
-    const winners = roundMatches
-      .sort((a, b) => a.id - b.id)
-      .map(m => (m.home_sets > m.away_sets ? m.home_team_id : m.away_team_id));
+    let winners;
+    if (season.two_legged) {
+      // Rovansli: ayni takim ciftinin iki macini birlestir
+      const ties = new Map();
+      for (const m of roundMatches.sort((a, b) => a.id - b.id)) {
+        const key = [Math.min(m.home_team_id, m.away_team_id), Math.max(m.home_team_id, m.away_team_id)].join('-');
+        if (!ties.has(key)) ties.set(key, []);
+        ties.get(key).push(m);
+      }
+      winners = [];
+      for (const legs of ties.values()) {
+        const leg1 = legs.find(x => x.leg === 1) || legs[0];
+        const leg2 = legs.find(x => x.leg === 2) || legs[1] || legs[0];
+        winners.push(legs.length > 1 ? tieWinner(leg1, leg2) : matchWinner(leg1));
+      }
+    } else {
+      winners = roundMatches.sort((a, b) => a.id - b.id).map(m => matchWinner(m));
+    }
+    if (winners.some(w => !w)) return null; // kazanani belli olmayan eslesme var (penalti bekleniyor)
     let pool = [...winners];
     if (season.knockout_byes) {
       try { pool = pool.concat(JSON.parse(season.knockout_byes)); } catch {}

@@ -50,6 +50,7 @@ export default function LiveConsole() {
   const [mvpId, setMvpId] = useState('');
   const [goalModal, setGoalModal] = useState(null); // { side, player, et } gol detay/asist secimi
   const [actionModal, setActionModal] = useState(null); // yogun modda oyuncu aksiyon paneli
+  const [shootoutModal, setShootoutModal] = useState(null); // { home, away } penalti serisi girisi
   const dragMovedRef = useRef(false); // tiklama ile suruklemeyi ayirt et
   const [positions, setPositions] = useState({});   // { playerId: {x, y} } tum saha %
   const [lineup, setLineup] = useState(null);        // { home: [ids], away: [ids] }
@@ -243,7 +244,13 @@ export default function LiveConsole() {
       canFinish = !cur && s.sets.filter(x => x.finished).length >= (s.period_count || sport.regularPeriods);
     }
   }
-  const needExtra = !isSetBased && m.status === 'live' && !cur && !sport.allowDraw && s.totals.home === s.totals.away;
+  const soDecided = m.shootout_home != null && m.shootout_away != null && m.shootout_home !== m.shootout_away;
+  const effTied = m.leg === 2 && s.aggregate
+    ? s.aggregate.home === s.aggregate.away
+    : s.totals.home === s.totals.away;
+  const koTied = !isSetBased && m.status === 'live' && !cur && m.stage === 'knockout' && m.leg !== 1
+    && effTied && !soDecided;
+  const needExtra = (!isSetBased && m.status === 'live' && !cur && !sport.allowDraw && s.totals.home === s.totals.away && !soDecided) || koTied;
 
   const statOf = (pid) => s.playerStats.find(x => x.id === pid);
   const byId = (pid) => [...s.home_roster, ...s.away_roster].find(p => p.id === pid);
@@ -359,6 +366,9 @@ export default function LiveConsole() {
             </div>
             <div className="scorehead-sub">
               <b>{subScore}</b>{periodHistory ? ` · (${periodHistory})` : ''}
+              {s.leg1_score && <span> · İlk maç: {s.leg1_score.home} - {s.leg1_score.away}</span>}
+              {s.aggregate && <span style={{ fontWeight: 700, color: 'var(--text)' }}> · Toplam: {s.aggregate.home} - {s.aggregate.away}</span>}
+              {m.shootout_home != null && <span style={{ color: 'var(--accent)' }}> · Penaltılar: {m.shootout_home} - {m.shootout_away}</span>}
             </div>
           </div>
           <div className="scorehead-team right">
@@ -377,9 +387,12 @@ export default function LiveConsole() {
                   {sport.periodName} Bitir
                 </button>
               )}
-              {needExtra && <button className="btn" onClick={() => call('/add-period')}>Uzatma Periyodu Ekle</button>}
+              {needExtra && <button className="btn" onClick={() => call('/add-period')}>Uzatma {sport.periodName}si Ekle</button>}
+              {koTied && sport.key === 'football' && (
+                <button className="btn primary" onClick={() => setShootoutModal({ home: '', away: '' })}>Penaltı Atışları</button>
+              )}
         {!cur && !needExtra && !canFinish && <button className="btn" onClick={() => call('/add-period')}>Yeni {sport.periodName} Ekle</button>}
-              {canFinish && !needExtra && <button className="btn green" onClick={() => confirm('Maç bitirilsin mi? (Maçın oyuncusunu sonradan seçebilirsiniz)') && call('/finish', {})}>Maçı Bitir</button>}
+              {(canFinish && !needExtra) || soDecided ? <button className="btn green" onClick={() => confirm('Maç bitirilsin mi? (Maçın oyuncusunu sonradan seçebilirsiniz)') && call('/finish', {})}>Maçı Bitir</button> : null}
               <Link className="btn" to={`/scoreboard/${m.id}`} target="_blank">Skorboard ↗</Link>
             </>
           )}
@@ -452,6 +465,28 @@ export default function LiveConsole() {
           </div>
         );
       })()}
+
+      {shootoutModal && (
+        <div className="goal-modal-backdrop" onClick={() => setShootoutModal(null)}>
+          <div className="goal-modal card" onClick={e => e.stopPropagation()}>
+            <h2 style={{ marginTop: 0 }}>🥅 Penaltı Atışları Sonucu</h2>
+            <p className="muted" style={{ fontSize: 13 }}>Seri skorunu girin (maç skoruna eklenmez; kazananı belirler).</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div><label>{s.home_team.name}</label>
+                <input type="number" min="0" value={shootoutModal.home} onChange={e => setShootoutModal({ ...shootoutModal, home: e.target.value })} /></div>
+              <div><label>{s.away_team.name}</label>
+                <input type="number" min="0" value={shootoutModal.away} onChange={e => setShootoutModal({ ...shootoutModal, away: e.target.value })} /></div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+              <button className="btn green big" style={{ flex: 1 }} onClick={() => {
+                call('/shootout', { home: Number(shootoutModal.home), away: Number(shootoutModal.away) });
+                setShootoutModal(null);
+              }}>Kaydet</button>
+              <button className="btn" onClick={() => setShootoutModal(null)}>Vazgeç</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {goalModal && (() => {
         const roster = goalModal.side === 'home' ? s.home_roster : s.away_roster;

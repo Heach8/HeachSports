@@ -42,6 +42,9 @@ export default function MatchDetail() {
             ))}
           </tbody>
         </table>
+        {m.shootout_home != null && (
+          <p style={{ marginTop: 10, color: 'var(--accent)', fontWeight: 700 }}>Penaltı atışları: {m.shootout_home} - {m.shootout_away}</p>
+        )}
         {data.mvp && <p style={{ marginTop: 12, color: 'var(--accent)' }}>⭐ Maçın Oyuncusu: <Link to={`/oyuncu/${data.mvp.id}`}>{data.mvp.first_name} {data.mvp.last_name}</Link></p>}
         {m.status === 'live' && <p style={{ marginTop: 10 }}><Link className="btn sm" to={`/scoreboard/${m.id}`} target="_blank">Skorboard Görünümü ↗</Link></p>}
       </div>

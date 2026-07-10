@@ -3,7 +3,7 @@ import { qGet, qAll, qRun, qInsert } from './db.js';
 import { requireRole, ah } from './auth.js';
 import { broadcast } from './live.js';
 import { sportOf, sportConfigForClient, isSetBased } from './sports.js';
-import { advanceAfterFinish } from './tournament.js';
+import { advanceAfterFinish, matchWinner } from './tournament.js';
 
 export const liveRouter = Router();
 const scorer = requireRole('scorekeeper', 'admin');
@@ -115,10 +115,22 @@ export async function getMatchState(matchId) {
       }
     }
   }
+  // Rovans maci: ilk mac skoru ve toplam (konsol gosterimi + beraberlik kontrolu icin)
+  let leg1Score = null, aggregate = null;
+  if (match.stage === 'knockout' && match.leg === 2) {
+    const leg1 = await qGet(
+      "SELECT * FROM matches WHERE season_id = ? AND round = ? AND stage = 'knockout' AND leg = 1 AND home_team_id = ? AND away_team_id = ?",
+      [match.season_id, match.round, match.away_team_id, match.home_team_id]);
+    if (leg1) {
+      leg1Score = { home: leg1.away_sets, away: leg1.home_sets }; // bu macin perspektifinden
+      aggregate = { home: totals.home + leg1.away_sets, away: totals.away + leg1.home_sets };
+    }
+  }
   return {
     match, sport: sportCfg,
     court_size: season.court_size || sportCfg.defaultCourtSize || 6,
     period_count: season.period_count || sportCfg.regularPeriods || null,
+    leg1_score: leg1Score, aggregate,
     suspended,
     fouled_out: fouledOut,
     team_fouls: teamFouls,
@@ -307,6 +319,23 @@ liveRouter.post('/:matchId/mvp', scorer, ah(async (req, res) => {
   res.json(state);
 }));
 
+// Penalti serisi sonucu (skora dahil edilmez; elemede kazanani belirler)
+liveRouter.post('/:matchId/shootout', scorer, ah(async (req, res) => {
+  const id = Number(req.params.matchId);
+  const match = await qGet('SELECT * FROM matches WHERE id = ?', [id]);
+  if (!match) return res.status(404).json({ error: 'Mac bulunamadi' });
+  if (match.stage !== 'knockout') return res.status(400).json({ error: 'Penalti serisi sadece eleme maclarinda girilir' });
+  const h = Number(req.body.home), a = Number(req.body.away);
+  if (!Number.isInteger(h) || !Number.isInteger(a) || h < 0 || a < 0) {
+    return res.status(400).json({ error: 'Gecerli penalti skorlari girin' });
+  }
+  if (h === a) return res.status(400).json({ error: 'Penalti serisi beraberlikle bitemez' });
+  await qRun('UPDATE matches SET shootout_home = ?, shootout_away = ? WHERE id = ?', [h, a, id]);
+  const state = await getMatchState(id);
+  broadcast(id, state);
+  res.json(state);
+}));
+
 liveRouter.post('/:matchId/finish', scorer, ah(async (req, res) => {
   const id = Number(req.params.matchId);
   const match = await qGet('SELECT * FROM matches WHERE id = ?', [id]);
@@ -320,11 +349,25 @@ liveRouter.post('/:matchId/finish', scorer, ah(async (req, res) => {
   if (isSetBased(sportKey)) {
     if (match.home_sets === match.away_sets) return res.status(400).json({ error: 'Set esitliginde mac bitirilemez' });
   } else {
-    // Eleme macinda beraberlik olamaz (uzatma/penaltilarla kazanan belirlenmeli)
-    if ((!sport.allowDraw || match.stage === 'knockout') && hp === ap) {
-      return res.status(400).json({ error: match.stage === 'knockout'
-        ? 'Eleme macinda beraberlik olamaz: uzatma periyodu ekleyin veya penalti gollerini isleyin'
-        : 'Beraberlikte mac bitirilemez, uzatma periyodu ekleyin' });
+    const soDecided = match.shootout_home != null && match.shootout_away != null && match.shootout_home !== match.shootout_away;
+    if (match.stage === 'knockout' && match.leg === 2) {
+      // Rovans: macin kendi skoru degil TOPLAM skor onemli
+      const leg1 = await qGet(
+        "SELECT * FROM matches WHERE season_id = ? AND round = ? AND stage = 'knockout' AND leg = 1 AND home_team_id = ? AND away_team_id = ?",
+        [match.season_id, match.round, match.away_team_id, match.home_team_id]);
+      const aggHome = hp + (leg1 ? leg1.away_sets : 0);
+      const aggAway = ap + (leg1 ? leg1.home_sets : 0);
+      if (aggHome === aggAway && !soDecided) {
+        return res.status(400).json({ error: `Toplam skor esit (${aggHome}-${aggAway}): uzatma devresi ekleyin veya penalti serisi sonucunu girin` });
+      }
+    } else if (hp === ap) {
+      if (match.stage !== 'knockout') {
+        if (!sport.allowDraw) return res.status(400).json({ error: 'Beraberlikte mac bitirilemez, uzatma periyodu ekleyin' });
+      } else if (match.leg === 1) {
+        // Rovansli elemede ilk mac berabere bitebilir
+      } else if (!soDecided) {
+        return res.status(400).json({ error: 'Kazanan belli olmadan eleme maci bitirilemez: uzatma devresi ekleyin veya penalti serisi sonucunu girin' });
+      }
     }
     await qRun('UPDATE matches SET home_sets = ?, away_sets = ? WHERE id = ?', [hp, ap, id]);
   }
