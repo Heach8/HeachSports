@@ -45,6 +45,17 @@ export default function MatchDetail() {
         {data.mvp && <p style={{ marginTop: 12, color: 'var(--accent)' }}>⭐ Maçın Oyuncusu: <Link to={`/oyuncu/${data.mvp.id}`}>{data.mvp.first_name} {data.mvp.last_name}</Link></p>}
         {m.status === 'live' && <p style={{ marginTop: 10 }}><Link className="btn sm" to={`/scoreboard/${m.id}`} target="_blank">Skorboard Görünümü ↗</Link></p>}
       </div>
+      {sport.key === 'football' && data.goals?.length > 0 && (
+        <div className="card">
+          <h2 style={{ marginTop: 0 }}>⚽ Goller</h2>
+          {data.goals.map((g, i) => (
+            <p key={i} style={{ padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
+              <span className="muted">{g.period}. Devre</span> · <b>{g.team_id === m.home_team_id ? m.home_team : m.away_team}</b> ·{' '}
+              {g.own_goal ? 'Kendi kalesine gol' : <>⚽ {g.scorer}{g.detail_label && <span className="muted"> ({g.detail_label})</span>}{g.assist && <span> · <span className="muted">Asist:</span> {g.assist}</span>}</>}
+            </p>
+          ))}
+        </div>
+      )}
       {stats.length > 0 && (
         <div className="card">
           <h2 style={{ marginTop: 0 }}>Oyuncu İstatistikleri</h2>

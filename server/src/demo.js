@@ -135,7 +135,75 @@ if (anyPlayer) {
   await qRun("INSERT INTO penalties (player_id, type, note) VALUES (?, 'yellow', 'Hakem karari itiraz')", [anyPlayer.id]);
 }
 
+// --- FUTBOL DEMO: 2 hafta oynanmis (gol sekli + asist + kartlar) ---
+const fSeason = await qGet("SELECT * FROM seasons WHERE is_active = 1 AND sport = 'football'");
+if (fSeason && !(await qGet('SELECT COUNT(*) c FROM matches WHERE season_id = ?', [fSeason.id])).c) {
+  // Kart kurallari: 2 sari = 1 mac, kirmizi = 1 mac
+  await qRun('UPDATE seasons SET yellow_limit = 2, red_ban = 1 WHERE id = ?', [fSeason.id]);
+  const fTeams = (await qAll('SELECT id FROM teams WHERE season_id = ?', [fSeason.id])).map(t => t.id);
+  const fArr = [...fTeams];
+  const fRounds = [];
+  for (let r = 0; r < fArr.length - 1; r++) {
+    const pairs = [];
+    for (let i = 0; i < fArr.length / 2; i++) {
+      const a = fArr[i], b = fArr[fArr.length - 1 - i];
+      pairs.push(r % 2 === 0 ? [a, b] : [b, a]);
+    }
+    fRounds.push(pairs);
+    fArr.splice(1, 0, fArr.pop());
+  }
+  const gDetail = () => { const x = Math.random(); return x < .45 ? 'right_foot' : x < .75 ? 'left_foot' : x < .9 ? 'head' : x < .95 ? 'penalty' : 'other'; };
+  const fIds = [];
+  for (let i = 0; i < fRounds.length; i++) {
+    for (const [h, a] of fRounds[i]) {
+      const mid = await qInsert(
+        'INSERT INTO matches (season_id, round, home_team_id, away_team_id, best_of, scheduled_at) VALUES (?, ?, ?, ?, 5, ?)',
+        [fSeason.id, i + 1, h, a, iso(now + (i - 1) * 5 * day)]);
+      fIds.push({ id: mid, round: i + 1, home: h, away: a });
+    }
+  }
+  for (const m of fIds.filter(x => x.round <= 2)) {
+    const hr = await roster(m.home), ar = await roster(m.away);
+    let th = 0, ta = 0;
+    for (const half of [1, 2]) {
+      let hh = 0, ha = 0;
+      const goalCount = rnd(4);
+      for (let g = 0; g < goalCount; g++) {
+        const homeScores = Math.random() < 0.55;
+        const [tid, list] = homeScores ? [m.home, hr] : [m.away, ar];
+        const scorer = pickPlayer(list.slice(3)); // forvetler/orta saha agirlikli
+        const gid = await qInsert(
+          'INSERT INTO stat_events (match_id, set_no, team_id, player_id, type, points, detail) VALUES (?, ?, ?, ?, ?, 1, ?)',
+          [m.id, half, tid, scorer, 'goal', gDetail()]);
+        if (Math.random() < 0.7) {
+          let assist = pickPlayer(list);
+          if (assist !== scorer) {
+            await qRun('INSERT INTO stat_events (match_id, set_no, team_id, player_id, type, points, related_id) VALUES (?, ?, ?, ?, ?, 0, ?)',
+              [m.id, half, tid, assist, 'assist', gid]);
+          }
+        }
+        homeScores ? hh++ : ha++;
+      }
+      // kaleci kurtarislari + kartlar
+      await insEv(m.id, half, m.home, hr[0], 'save', iso(now), 0);
+      await insEv(m.id, half, m.away, ar[0], 'save', iso(now), 0);
+      if (Math.random() < 0.6) await insEv(m.id, half, m.home, pickPlayer(hr), 'yellow_card', iso(now), 0);
+      if (Math.random() < 0.6) await insEv(m.id, half, m.away, pickPlayer(ar), 'yellow_card', iso(now), 0);
+      await qRun('INSERT INTO match_sets (match_id, set_no, home_points, away_points, finished) VALUES (?, ?, ?, ?, 1)', [m.id, half, hh, ha]);
+      th += hh; ta += ha;
+    }
+    const winner = th > ta ? m.home : ta > th ? m.away : null;
+    let mvpId = null;
+    if (winner) {
+      const top = await qGet(`SELECT player_id, COUNT(*) c FROM stat_events WHERE match_id = ? AND team_id = ? AND type = 'goal' AND player_id IS NOT NULL GROUP BY player_id ORDER BY c DESC LIMIT 1`, [m.id, winner]);
+      mvpId = top?.player_id || null;
+    }
+    await qRun("UPDATE matches SET status = 'finished', home_sets = ?, away_sets = ?, mvp_player_id = ? WHERE id = ?", [th, ta, mvpId, m.id]);
+  }
+  console.log('Futbol demosu: 4 mac oynandi (gol detaylari + asistler + kartlar).');
+}
+
 const done = (await qGet("SELECT COUNT(*) c FROM matches WHERE season_id = ? AND status = 'finished'", [season.id])).c;
 const evc = (await qGet('SELECT COUNT(*) c FROM stat_events')).c;
-console.log(`Demo hazir: ${done} mac oynandi, 1 mac CANLI, ${evc} istatistik olayi uretildi.`);
+console.log(`Demo hazir: ${done} voleybol maci oynandi, 1 mac CANLI, ${evc} istatistik olayi uretildi.`);
 process.exit(0);

@@ -40,6 +40,7 @@ export default function LiveConsole() {
   const [s, setS] = useState(null);
   const [error, setError] = useState('');
   const [mvpId, setMvpId] = useState('');
+  const [goalModal, setGoalModal] = useState(null); // { side, player, et } gol detay/asist secimi
   const [positions, setPositions] = useState({});   // { playerId: {x, y} } tum saha %
   const [lineup, setLineup] = useState(null);        // { home: [ids], away: [ids] }
   const [benchDrag, setBenchDrag] = useState(null);  // { id, side, cx, cy }
@@ -94,8 +95,9 @@ export default function LiveConsole() {
     const size = s.court_size || s.sport.defaultCourtSize || 6;
     setLineup(prevLu => {
       const lu = { home: [...(prevLu?.home || [])], away: [...(prevLu?.away || [])] };
+      const susp = s.suspended || {};
       const fix = (roster, key) => {
-        const ids = roster.map(p => p.id);
+        const ids = roster.filter(p => !susp[p.id]).map(p => p.id);
         lu[key] = lu[key].filter(pid => ids.includes(pid));
         for (const pid of ids) {
           if (lu[key].length >= Math.min(size, ids.length)) break;
@@ -236,6 +238,7 @@ export default function LiveConsole() {
     const roster = side === 'home' ? s.home_roster : s.away_roster;
     return roster.filter(p => !(lineup?.[side] || []).includes(p.id));
   };
+  const suspOf = (pid) => (s.suspended || {})[pid];
 
   // On planda: aktif set/periyot skoru
   const bigHome = cur ? cur.home_points : (isSetBased ? m.home_sets : s.totals.home);
@@ -266,7 +269,9 @@ export default function LiveConsole() {
               className={et.points > 0 ? 'ev-score' : et.key.includes('err') || et.key.includes('red') || et.key === 'foul' ? 'ev-bad' : 'ev-neutral'}
               disabled={!canScore}
               title={et.label + (et.points ? ` (+${et.points} sayı)` : '')}
-              onClick={() => call('/event', { team: side, type: et.key, player_id: p.id })}>
+              onClick={() => et.details
+                ? setGoalModal({ side, player: p, et, detail: et.details[0].key, assist: '' })
+                : call('/event', { team: side, type: et.key, player_id: p.id })}>
               {et.short || et.label}
             </button>
           ))}
@@ -285,7 +290,13 @@ export default function LiveConsole() {
           <span>Yedekler</span>
         </div>
         {list.length === 0 && <p className="muted" style={{ fontSize: 11, textAlign: 'center' }}>Yedek yok</p>}
-        {list.map(p => (
+        {list.map(p => suspOf(p.id) ? (
+          <div key={p.id} className={`bench-chip ${side} suspended`} title={suspOf(p.id)}>
+            <span className="chip-no">{p.jersey_no}</span>
+            <span className="chip-name">{p.first_name} {p.last_name.charAt(0)}.</span>
+            <span className="susp-tag">CEZALI</span>
+          </div>
+        ) : (
           <div key={p.id} className={`bench-chip ${side} ${benchDrag?.id === p.id ? 'dragging' : ''}`}
             onPointerDown={(e) => onBenchDragStart(e, p.id, side)}
             title="Sahadaki bir oyuncunun üzerine sürükleyip bırakın (oyuncu değişikliği)">
@@ -375,6 +386,41 @@ export default function LiveConsole() {
             <span className="chip-no">{p.jersey_no}</span> {p.first_name} {p.last_name.charAt(0)}.
           </div>
         ) : null;
+      })()}
+
+      {goalModal && (() => {
+        const roster = goalModal.side === 'home' ? s.home_roster : s.away_roster;
+        return (
+          <div className="goal-modal-backdrop" onClick={() => setGoalModal(null)}>
+            <div className="goal-modal card" onClick={e => e.stopPropagation()}>
+              <h2 style={{ marginTop: 0 }}>⚽ Gol: #{goalModal.player.jersey_no} {goalModal.player.first_name} {goalModal.player.last_name}</h2>
+              <label>Golün Şekli</label>
+              <div className="detail-opts">
+                {goalModal.et.details.map(d => (
+                  <button key={d.key} className={`btn ${goalModal.detail === d.key ? 'primary' : ''}`}
+                    onClick={() => setGoalModal({ ...goalModal, detail: d.key })}>{d.label}</button>
+                ))}
+              </div>
+              <label>Asist (opsiyonel)</label>
+              <select value={goalModal.assist} onChange={e => setGoalModal({ ...goalModal, assist: e.target.value })}>
+                <option value="">Asist yok</option>
+                {roster.filter(p => p.id !== goalModal.player.id).map(p => (
+                  <option key={p.id} value={p.id}>#{p.jersey_no} {p.first_name} {p.last_name}</option>
+                ))}
+              </select>
+              <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                <button className="btn green big" style={{ flex: 1 }} onClick={() => {
+                  call('/event', {
+                    team: goalModal.side, type: goalModal.et.key, player_id: goalModal.player.id,
+                    detail: goalModal.detail, assist_player_id: goalModal.assist ? Number(goalModal.assist) : null
+                  });
+                  setGoalModal(null);
+                }}>GOL! Kaydet</button>
+                <button className="btn" onClick={() => setGoalModal(null)}>Vazgeç</button>
+              </div>
+            </div>
+          </div>
+        );
       })()}
 
       {m.status !== 'finished' && teamEvents.length > 0 && (

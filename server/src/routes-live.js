@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { qGet, qAll, qRun } from './db.js';
+import { qGet, qAll, qRun, qInsert } from './db.js';
 import { requireRole, ah } from './auth.js';
 import { broadcast } from './live.js';
 import { sportOf, sportConfigForClient, isSetBased } from './sports.js';
@@ -8,7 +8,51 @@ export const liveRouter = Router();
 const scorer = requireRole('scorekeeper', 'admin');
 
 async function matchSeason(match) {
-  return (await qGet('SELECT sport, court_size FROM seasons WHERE id = ?', [match.season_id])) || {};
+  return (await qGet('SELECT sport, court_size, yellow_limit, red_ban FROM seasons WHERE id = ?', [match.season_id])) || {};
+}
+
+// Bu mac icin cezali oyuncular: onceki macta kirmizi goren / sari kart sinirini asan
+async function computeSuspensions(match, season) {
+  const out = {};
+  if (season.sport !== 'football') return out;
+  const yl = season.yellow_limit || 0;
+  const rb = season.red_ban || 0;
+  if (!yl && !rb) return out;
+  for (const teamId of [match.home_team_id, match.away_team_id]) {
+    const prev = await qAll(`
+      SELECT id FROM matches
+      WHERE season_id = ? AND status = 'finished' AND (home_team_id = ? OR away_team_id = ?) AND id != ?
+      ORDER BY round, id
+    `, [match.season_id, teamId, teamId, match.id]);
+    if (!prev.length) continue;
+    const lastId = prev[prev.length - 1].id;
+    const ids = prev.map(m => m.id);
+    if (rb) {
+      const reds = await qAll(
+        `SELECT DISTINCT player_id FROM stat_events WHERE match_id = ? AND team_id = ? AND type = 'red_card' AND player_id IS NOT NULL`,
+        [lastId, teamId]);
+      for (const r of reds) out[r.player_id] = 'Kırmızı kart cezalısı';
+    }
+    if (yl) {
+      const marks = ids.map(() => '?').join(',');
+      const rows = await qAll(`
+        SELECT player_id,
+          SUM(CASE WHEN match_id = ? THEN 1 ELSE 0 END) AS in_last,
+          COUNT(*) AS total
+        FROM stat_events
+        WHERE match_id IN (${marks}) AND team_id = ? AND type = 'yellow_card' AND player_id IS NOT NULL
+        GROUP BY player_id
+      `, [lastId, ...ids, teamId]);
+      for (const r of rows) {
+        const before = r.total - r.in_last;
+        // Sinir son macta asildiysa bu macta cezali
+        if (Math.floor(r.total / yl) > Math.floor(before / yl) && !out[r.player_id]) {
+          out[r.player_id] = `${yl} sarı kart cezalısı`;
+        }
+      }
+    }
+  }
+  return out;
 }
 
 async function matchSport(match) {
@@ -49,9 +93,12 @@ export async function getMatchState(matchId) {
   let totals = { home: 0, away: 0 };
   for (const s of sets) { totals.home += s.home_points; totals.away += s.away_points; }
   const sportCfg = sportConfigForClient(sportKey);
+  const suspended = match.status === 'finished' ? {} : await computeSuspensions(match, season);
   return {
     match, sport: sportCfg,
     court_size: season.court_size || sportCfg.defaultCourtSize || 6,
+    suspended,
+    rules: { yellow_limit: season.yellow_limit || 0, red_ban: season.red_ban || 0 },
     home_team: homeTeam, away_team: awayTeam,
     sets, current_set: current, totals, playerStats,
     home_roster: homeRoster, away_roster: awayRoster
@@ -88,11 +135,35 @@ liveRouter.post('/:matchId/event', scorer, ah(async (req, res) => {
   const et = sport.eventTypes[type];
   if (!et) return res.status(400).json({ error: 'Gecersiz islem turu' });
   if (et.needsPlayer && !player_id) return res.status(400).json({ error: 'Oyuncu secilmeli' });
+  // Cezali oyuncu kontrolu (futbol kart kurallari)
+  if (et.needsPlayer) {
+    const season = await matchSeason(match);
+    const susp = await computeSuspensions(match, season);
+    if (susp[player_id]) return res.status(400).json({ error: 'Bu oyuncu bu macta cezali: ' + susp[player_id] });
+  }
+  // Detay dogrulama (orn. golun sekli)
+  let detail = null;
+  if (req.body.detail && et.details) {
+    const ok = et.details.find(d => d.key === req.body.detail);
+    if (!ok) return res.status(400).json({ error: 'Gecersiz detay' });
+    detail = req.body.detail;
+  }
   const current = await qGet('SELECT * FROM match_sets WHERE match_id = ? AND finished = 0 ORDER BY set_no LIMIT 1', [id]);
   if (!current) return res.status(400).json({ error: 'Acik periyot yok' });
   const teamId = team === 'home' ? match.home_team_id : match.away_team_id;
-  await qRun('INSERT INTO stat_events (match_id, set_no, team_id, player_id, type, points) VALUES (?, ?, ?, ?, ?, ?)',
-    [id, current.set_no, teamId, et.needsPlayer ? player_id : null, type, et.points]);
+  const evId = await qInsert('INSERT INTO stat_events (match_id, set_no, team_id, player_id, type, points, detail) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [id, current.set_no, teamId, et.needsPlayer ? player_id : null, type, et.points, detail]);
+  // Asist: gole bagli ikinci kayit
+  if (et.allowAssist && req.body.assist_player_id) {
+    const aid = Number(req.body.assist_player_id);
+    if (aid !== Number(player_id)) {
+      const ap = await qGet('SELECT * FROM players WHERE id = ? AND team_id = ?', [aid, teamId]);
+      if (ap) {
+        await qRun('INSERT INTO stat_events (match_id, set_no, team_id, player_id, type, points, related_id) VALUES (?, ?, ?, ?, ?, 0, ?)',
+          [id, current.set_no, teamId, aid, 'assist', evId]);
+      }
+    }
+  }
   if (et.points > 0) {
     const col = team === 'home' ? 'home_points' : 'away_points';
     await qRun(`UPDATE match_sets SET ${col} = ${col} + ? WHERE id = ?`, [et.points, current.id]);
@@ -106,8 +177,17 @@ liveRouter.post('/:matchId/undo', scorer, ah(async (req, res) => {
   const id = Number(req.params.matchId);
   const match = await qGet('SELECT * FROM matches WHERE id = ?', [id]);
   if (!match || match.status !== 'live') return res.status(400).json({ error: 'Mac canli degil' });
-  const last = await qGet('SELECT * FROM stat_events WHERE match_id = ? ORDER BY id DESC LIMIT 1', [id]);
+  let last = await qGet('SELECT * FROM stat_events WHERE match_id = ? ORDER BY id DESC LIMIT 1', [id]);
   if (!last) return res.status(400).json({ error: 'Geri alinacak islem yok' });
+  // Son kayit bir gole bagli asistse, once golu bul (ikisi birlikte geri alinir)
+  if (last.related_id) {
+    const parent = await qGet('SELECT * FROM stat_events WHERE id = ?', [last.related_id]);
+    await qRun('DELETE FROM stat_events WHERE id = ?', [last.id]);
+    if (parent) last = parent;
+  } else {
+    // Gole bagli asist varsa birlikte sil
+    await qRun('DELETE FROM stat_events WHERE related_id = ?', [last.id]);
+  }
   const sportKey = await matchSport(match);
   const set = await qGet('SELECT * FROM match_sets WHERE match_id = ? AND set_no = ?', [id, last.set_no]);
   if (set.finished) {

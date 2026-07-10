@@ -261,3 +261,14 @@ body { overflow-x: hidden; }
   .bench { padding: 6px; gap: 4px; }
   .bench-chip { padding: 5px 7px; }
 }
+
+/* --- Futbol: gol modali + cezali oyuncu --- */
+.goal-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 100;
+  display: flex; align-items: center; justify-content: center; padding: 16px; }
+.goal-modal { width: 100%; max-width: 420px; margin: 0; animation: fadeup .2s ease; }
+.detail-opts { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.detail-opts .btn { flex: 1 1 auto; min-width: 90px; }
+
+.bench-chip.suspended { opacity: .55; cursor: not-allowed; border-left-color: var(--red) !important; }
+.susp-tag { margin-left: auto; background: var(--red); color: #fff; font-size: 9px; font-weight: 800;
+  padding: 2px 5px; border-radius: 4px; letter-spacing: .5px; }

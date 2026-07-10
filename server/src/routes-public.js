@@ -206,5 +206,32 @@ publicRouter.get('/matches/:id', ah(async (req, res) => {
   const mvp = match.mvp_player_id
     ? await qGet('SELECT id, first_name, last_name FROM players WHERE id = ?', [match.mvp_player_id])
     : null;
-  res.json({ match: await matchWithNames(match), sets, playerStats, mvp, sport: sportConfigForClient(sportKey) });
+
+  // Futbol: gol listesi (sekli + asistiyle)
+  let goals = [];
+  if (sportKey === 'football') {
+    const detailLabels = Object.fromEntries((sport.eventTypes.goal?.details || []).map(d => [d.key, d.label]));
+    const rows = await qAll(`
+      SELECT e.id, e.set_no, e.team_id, e.type, e.detail,
+        p.first_name || ' ' || p.last_name AS scorer
+      FROM stat_events e LEFT JOIN players p ON p.id = e.player_id
+      WHERE e.match_id = ? AND e.type IN ('goal', 'own_goal')
+      ORDER BY e.id
+    `, [match.id]);
+    for (const g of rows) {
+      const assist = await qGet(`
+        SELECT p.first_name || ' ' || p.last_name AS name
+        FROM stat_events a JOIN players p ON p.id = a.player_id
+        WHERE a.related_id = ? AND a.type = 'assist' LIMIT 1
+      `, [g.id]);
+      goals.push({
+        period: g.set_no, team_id: g.team_id,
+        scorer: g.type === 'own_goal' ? null : g.scorer,
+        detail_label: detailLabels[g.detail] || null,
+        assist: assist?.name || null,
+        own_goal: g.type === 'own_goal'
+      });
+    }
+  }
+  res.json({ match: await matchWithNames(match), sets, playerStats, mvp, sport: sportConfigForClient(sportKey), goals });
 }));

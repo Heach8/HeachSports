@@ -62,7 +62,11 @@ adminRouter.post('/seasons', ah(async (req, res) => {
   if (!SPORT_KEYS.includes(sport)) return res.status(400).json({ error: 'Gecersiz brans' });
   let cs = Number(court_size) || null;
   if (cs !== null && (cs < 2 || cs > 11)) return res.status(400).json({ error: 'Saha ici oyuncu sayisi 2-11 arasinda olmali' });
-  const id = await qInsert('INSERT INTO seasons (name, sport, court_size, is_active) VALUES (?, ?, ?, 0)', [name, sport, cs]);
+  // Futbol kart kurallari (0/bos = kural kapali)
+  const yl = Number(req.body.yellow_limit) || 0;
+  const rb = req.body.red_ban ? 1 : 0;
+  const id = await qInsert('INSERT INTO seasons (name, sport, court_size, yellow_limit, red_ban, is_active) VALUES (?, ?, ?, ?, ?, 0)',
+    [name, sport, cs, yl, rb]);
   res.json({ id });
 }));
 adminRouter.post('/seasons/:id/activate', ah(async (req, res) => {

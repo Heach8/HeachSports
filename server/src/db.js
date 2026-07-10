@@ -132,6 +132,8 @@ CREATE TABLE IF NOT EXISTS seasons (
   name TEXT NOT NULL,
   sport TEXT NOT NULL DEFAULT 'volleyball' CHECK (sport IN ('volleyball','beach_volleyball','football','basketball')),
   court_size INTEGER,
+  yellow_limit INTEGER,
+  red_ban INTEGER,
   is_active INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS teams (
@@ -199,6 +201,8 @@ CREATE TABLE IF NOT EXISTS stat_events (
   player_id INTEGER REFERENCES players(id),
   type TEXT NOT NULL,
   points INTEGER NOT NULL DEFAULT 1,
+  detail TEXT,
+  related_id INTEGER,
   created_at TEXT NOT NULL DEFAULT ${NOW}
 );
 CREATE TABLE IF NOT EXISTS penalties (
@@ -222,7 +226,11 @@ export async function initSchema() {
   for (const stmt of [
     'ALTER TABLE players ADD COLUMN national_id_hash TEXT',
     'ALTER TABLE players ADD COLUMN national_id_mask TEXT',
-    'ALTER TABLE seasons ADD COLUMN court_size INTEGER'
+    'ALTER TABLE seasons ADD COLUMN court_size INTEGER',
+    'ALTER TABLE seasons ADD COLUMN yellow_limit INTEGER',
+    'ALTER TABLE seasons ADD COLUMN red_ban INTEGER',
+    'ALTER TABLE stat_events ADD COLUMN detail TEXT',
+    'ALTER TABLE stat_events ADD COLUMN related_id INTEGER'
   ]) {
     try { IS_PG ? await pool.query(stmt) : sqlite.exec(stmt); } catch {}
   }

@@ -347,11 +347,13 @@ function SeasonsTab({ flash }) {
   const [name, setName] = useState('');
   const [sport, setSport] = useState('volleyball');
   const [courtSize, setCourtSize] = useState(DEFAULT_COURT.volleyball);
+  const [yellowLimit, setYellowLimit] = useState(2);
+  const [redBan, setRedBan] = useState(true);
   const load = () => api('/admin/seasons').then(d => setSeasons(d.seasons));
   useEffect(() => { load(); }, []);
   const add = async (e) => {
     e.preventDefault();
-    try { await api('/admin/seasons', { method: 'POST', body: { name, sport, court_size: Number(courtSize) } }); flash('Sezon eklendi.'); setName(''); load(); }
+    try { await api('/admin/seasons', { method: 'POST', body: { name, sport, court_size: Number(courtSize), yellow_limit: sport === 'football' ? Number(yellowLimit) : 0, red_ban: sport === 'football' ? redBan : false } }); flash('Sezon eklendi.'); setName(''); load(); }
     catch (err) { flash(err.message, false); }
   };
   const activate = async (id) => {
@@ -375,6 +377,24 @@ function SeasonsTab({ flash }) {
               {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(n => <option key={n} value={n}>{n} oyuncu</option>)}
             </select>
           </div>
+          {sport === 'football' && (
+            <>
+              <div><label>Kaç sarı kartta 1 maç ceza?</label>
+                <select value={yellowLimit} onChange={e => setYellowLimit(e.target.value)}>
+                  <option value={0}>Kural kapalı</option>
+                  <option value={2}>2 sarı kart</option>
+                  <option value={3}>3 sarı kart</option>
+                  <option value={4}>4 sarı kart</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                <label style={{ display: 'flex', gap: 6, alignItems: 'center', margin: 0, fontSize: 13 }}>
+                  <input type="checkbox" style={{ width: 'auto' }} checked={redBan} onChange={e => setRedBan(e.target.checked)} />
+                  Kırmızı kart: sonraki maçta ceza
+                </label>
+              </div>
+            </>
+          )}
           <div style={{ display: 'flex', alignItems: 'flex-end' }}><button className="btn primary">Ekle</button></div>
         </form>
         <p className="muted" style={{ marginTop: 8 }}>Her branşın kendi aktif sezonu vardır; yeni sezonu aktifleştirince öncekisi arşive düşer. Saha içi sayısı maç konsolundaki dizilimi belirler (örn. plaj voleybolu 2, 3 veya 4 kişilik oynanabilir); geri kalan oyuncular yedek kulübesinde görünür.</p>
@@ -387,7 +407,11 @@ function SeasonsTab({ flash }) {
               <tr key={se.id}>
                 <td><b>{se.name}</b></td>
                 <td>{L[se.sport]}</td>
-                <td>{se.court_size || DEFAULT_COURT[se.sport] || 6}</td>
+                <td>{se.court_size || DEFAULT_COURT[se.sport] || 6}
+                  {se.sport === 'football' && <div className="muted" style={{ fontSize: 11 }}>
+                    {se.yellow_limit ? `${se.yellow_limit} sarı = ceza` : 'sarı kuralı yok'}{se.red_ban ? ' · kırmızı = ceza' : ''}
+                  </div>}
+                </td>
                 <td>{se.is_active ? <span className="badge approved">Aktif</span> : <span className="badge finished">Arşiv</span>}</td>
                 <td style={{ textAlign: 'right' }}>
                   {!se.is_active && <button className="btn sm" onClick={() => activate(se.id)}>Aktifleştir</button>}

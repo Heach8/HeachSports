@@ -69,7 +69,14 @@ export const SPORTS = {
     defaultBestOf: 5,
     allowDraw: true,
     eventTypes: {
-      goal:        { label: 'Gol',                 short: 'GOL', points: 1, needsPlayer: true },
+      goal:        { label: 'Gol',                 short: 'GOL', points: 1, needsPlayer: true,
+        details: [
+          { key: 'right_foot', label: 'Sağ Ayak' },
+          { key: 'left_foot',  label: 'Sol Ayak' },
+          { key: 'head',       label: 'Kafa' },
+          { key: 'penalty',    label: 'Penaltı' },
+          { key: 'other',      label: 'Diğer' }
+        ], allowAssist: true },
       own_goal:    { label: 'K.K. Gol (rakipten)', short: 'KK',  points: 1, needsPlayer: false },
       assist:      { label: 'Asist',               short: 'AST', points: 0, needsPlayer: true },
       save:        { label: 'Kurtarış',            short: 'KUR', points: 0, needsPlayer: true },

@@ -80,6 +80,7 @@ Notlar:
 - **Puan durumu:** TVF kuralları (3-0/3-1 → 3-0 puan, 3-2 → 2-1 puan), set ve sayı oranı tie-break.
 - **İstatistikler:** Skor krallığı, hücum, servis, blok liderleri; oyuncu profillerinde sezon istatistikleri ve MVP sayısı.
 - **Disiplin:** Sarı/kırmızı kart ve men cezası kaydı, oyuncu profilinde görünür.
+- **Futbol kuralları:** Turnuva açılırken kart kuralları belirlenir: kaç sarı kartta 1 maç ceza (2/3/4 veya kapalı) ve kırmızı kartın sonraki maç cezası (aç/kapa). Cezalı oyuncular maç konsolunda otomatik işaretlenir, sahaya dizilemez ve istatistik girilemez. Goller şekliyle kaydedilir (sağ/sol ayak, kafa, penaltı) ve asist bağlanır; maç detayında gol listesi, liderlerde gol krallığı ve asist sıralaması görünür.
 - **Çoklu branş:** Voleybol, plaj voleybolu (2 kişilik, 21 sayılık set, 3 set üzerinden), futbol ve basketbol; her branşın kendi sezonu, kuralları, istatistik türleri ve NCL logosu varyantı vardır.
 - **İlk giriş güvenliği:** Admin geçici şifreyle kullanıcı açar; kullanıcı ilk girişte şifresini iki kez girerek (eşleşme kontrolüyle) değiştirmek zorundadır.
 - **Kimlik eşleştirme & kariyer:** Oyuncu kaydında T.C. kimlik no alınır (algoritma doğrulamalı). Numara açık halde SAKLANMAZ; geri döndürülemez özet (HMAC) olarak tutulur ve yalnızca aynı kişinin farklı turnuvalardaki kayıtlarını eşleştirmekte kullanılır. Oyuncu profilinde "Turnuva Geçmişi" tablosu turnuva turnuva istatistik ve kariyer toplamı gösterir. Aynı kimlik no aynı sezonda ikinci kez kaydedilemez (çift takım engeli).
