@@ -16,7 +16,7 @@ export function MatchRow({ m }) {
   return (
     <Link to={`/mac/${m.id}`} className="matchrow">
       <span className={`badge ${m.status}`}>
-        {m.status === 'live' ? 'CANLI' : m.status === 'finished' ? 'Bitti' : (m.scheduled_at ? new Date(m.scheduled_at).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : `${m.round}. Hafta`)}
+        {m.status === 'live' ? 'CANLI' : m.status === 'finished' ? 'Bitti' : (m.scheduled_at ? new Date(m.scheduled_at).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : (m.stage_label || `${m.round}. Hafta`))}
       </span>
       <span className="teams">
         <TeamBadge name={m.home_team} logo={m.home_logo} />
@@ -40,7 +40,7 @@ export default function Home() {
   const load = () => {
     api('/live-matches').then(d => setLive(d.matches));
     api(`/fixtures?sport=${sport}`).then(d => setFixtures(d.matches));
-    api(`/standings?sport=${sport}`).then(d => setStandings(d.standings));
+    api(`/standings?sport=${sport}`).then(d => setStandings(d.standings || []));
     api(`/season?sport=${sport}`).then(d => setSeason(d.season));
   };
 
@@ -97,7 +97,7 @@ export default function Home() {
           {recent.map(m => <MatchRow key={m.id} m={m} />)}
         </div>
       </div>
-      <div className="card">
+      {standings.length > 0 && <div className="card">
         <h2 style={{ marginTop: 0 }}>Puan Durumu</h2>
         <table>
           <thead><tr><th>#</th><th>Takım</th><th className="num">O</th><th className="num">G</th><th className="num">M</th><th className="num">Puan</th></tr></thead>
@@ -112,7 +112,7 @@ export default function Home() {
             ))}
           </tbody>
         </table>
-      </div>
+      </div>}
     </>
   );
 }

@@ -3,6 +3,7 @@ import { qGet, qAll, qRun, qInsert } from './db.js';
 import { requireRole, ah } from './auth.js';
 import { broadcast } from './live.js';
 import { sportOf, sportConfigForClient, isSetBased } from './sports.js';
+import { advanceAfterFinish } from './tournament.js';
 
 export const liveRouter = Router();
 const scorer = requireRole('scorekeeper', 'admin');
@@ -285,13 +286,21 @@ liveRouter.post('/:matchId/finish', scorer, ah(async (req, res) => {
   if (isSetBased(sportKey)) {
     if (match.home_sets === match.away_sets) return res.status(400).json({ error: 'Set esitliginde mac bitirilemez' });
   } else {
-    if (!sport.allowDraw && hp === ap) return res.status(400).json({ error: 'Beraberlikte mac bitirilemez, uzatma periyodu ekleyin' });
+    // Eleme macinda beraberlik olamaz (uzatma/penaltilarla kazanan belirlenmeli)
+    if ((!sport.allowDraw || match.stage === 'knockout') && hp === ap) {
+      return res.status(400).json({ error: match.stage === 'knockout'
+        ? 'Eleme macinda beraberlik olamaz: uzatma periyodu ekleyin veya penalti gollerini isleyin'
+        : 'Beraberlikte mac bitirilemez, uzatma periyodu ekleyin' });
+    }
     await qRun('UPDATE matches SET home_sets = ?, away_sets = ? WHERE id = ?', [hp, ap, id]);
   }
   await qRun("UPDATE matches SET status = 'finished', mvp_player_id = ? WHERE id = ?",
     [req.body.mvp_player_id || null, id]);
   await qRun('DELETE FROM match_sets WHERE match_id = ? AND finished = 0 AND home_points = 0 AND away_points = 0', [id]);
+  // Turnuva formati: tur tamamlandiysa sonraki asamayi olustur
+  const advanceMsg = await advanceAfterFinish(id);
   const state = await getMatchState(id);
+  state.advance_message = advanceMsg;
   broadcast(id, state);
   res.json(state);
 }));

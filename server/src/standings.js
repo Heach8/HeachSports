@@ -2,10 +2,12 @@ import { qGet, qAll } from './db.js';
 
 // Voleybol/plaj: 3 puanli sistem (yakin maglubiyete 1 puan)
 // Futbol: 3/1/0 - Basketbol: 2/1
-export async function computeStandings(seasonId) {
+export async function computeStandings(seasonId, groupName = null) {
   const season = await qGet('SELECT * FROM seasons WHERE id = ?', [seasonId]);
   const sport = season?.sport || 'volleyball';
-  const teams = await qAll('SELECT * FROM teams WHERE season_id = ?', [seasonId]);
+  const teams = groupName
+    ? await qAll('SELECT * FROM teams WHERE season_id = ? AND group_name = ?', [seasonId, groupName])
+    : await qAll('SELECT * FROM teams WHERE season_id = ?', [seasonId]);
   const rows = new Map();
   for (const t of teams) {
     rows.set(t.id, {
@@ -14,7 +16,7 @@ export async function computeStandings(seasonId) {
       sets_won: 0, sets_lost: 0, points_for: 0, points_against: 0
     });
   }
-  const matches = await qAll("SELECT * FROM matches WHERE season_id = ? AND status = 'finished'", [seasonId]);
+  const matches = await qAll("SELECT * FROM matches WHERE season_id = ? AND status = 'finished' AND stage IN ('league','group')", [seasonId]);
   const allSets = await qAll(
     "SELECT ms.* FROM match_sets ms JOIN matches m ON m.id = ms.match_id WHERE m.season_id = ?", [seasonId]);
   const setsByMatch = new Map();

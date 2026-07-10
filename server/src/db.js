@@ -134,6 +134,10 @@ CREATE TABLE IF NOT EXISTS seasons (
   court_size INTEGER,
   yellow_limit INTEGER,
   red_ban INTEGER,
+  format TEXT NOT NULL DEFAULT 'league' CHECK (format IN ('league','groups_knockout','knockout')),
+  group_count INTEGER,
+  advance_count INTEGER,
+  knockout_byes TEXT,
   is_active INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS teams (
@@ -142,6 +146,7 @@ CREATE TABLE IF NOT EXISTS teams (
   name TEXT NOT NULL,
   company TEXT,
   logo_path TEXT,
+  group_name TEXT,
   created_at TEXT NOT NULL DEFAULT ${NOW}
 );
 CREATE TABLE IF NOT EXISTS users (
@@ -182,6 +187,7 @@ CREATE TABLE IF NOT EXISTS matches (
   home_sets INTEGER NOT NULL DEFAULT 0,
   away_sets INTEGER NOT NULL DEFAULT 0,
   best_of INTEGER NOT NULL DEFAULT 5,
+  stage TEXT NOT NULL DEFAULT 'league',
   mvp_player_id INTEGER REFERENCES players(id)
 );
 CREATE TABLE IF NOT EXISTS match_sets (
@@ -230,7 +236,13 @@ export async function initSchema() {
     'ALTER TABLE seasons ADD COLUMN yellow_limit INTEGER',
     'ALTER TABLE seasons ADD COLUMN red_ban INTEGER',
     'ALTER TABLE stat_events ADD COLUMN detail TEXT',
-    'ALTER TABLE stat_events ADD COLUMN related_id INTEGER'
+    'ALTER TABLE stat_events ADD COLUMN related_id INTEGER',
+    "ALTER TABLE seasons ADD COLUMN format TEXT NOT NULL DEFAULT 'league'",
+    'ALTER TABLE seasons ADD COLUMN group_count INTEGER',
+    'ALTER TABLE seasons ADD COLUMN advance_count INTEGER',
+    'ALTER TABLE seasons ADD COLUMN knockout_byes TEXT',
+    'ALTER TABLE teams ADD COLUMN group_name TEXT',
+    "ALTER TABLE matches ADD COLUMN stage TEXT NOT NULL DEFAULT 'league'"
   ]) {
     try { IS_PG ? await pool.query(stmt) : sqlite.exec(stmt); } catch {}
   }

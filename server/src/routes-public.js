@@ -3,6 +3,7 @@ import { qGet, qAll, getActiveSeason } from './db.js';
 import { ah } from './auth.js';
 import { computeStandings } from './standings.js';
 import { SPORTS, SPORT_KEYS, sportOf, sportConfigForClient, isSetBased } from './sports.js';
+import { knockoutLabel } from './tournament.js';
 
 export const publicRouter = Router();
 
@@ -28,6 +29,26 @@ async function matchWithNames(m) {
     }
   }
   return out;
+}
+
+async function stageLabels(seasonId, matches) {
+  // Eleme turlari icin etiket (Ceyrek Final vb.), gruplar icin "A Grubu"
+  const labels = {};
+  const koRounds = [...new Set(matches.filter(m => m.stage === 'knockout').map(m => m.round))].sort((a, b) => a - b);
+  for (const r of koRounds) {
+    const cnt = matches.filter(m => m.stage === 'knockout' && m.round === r).length;
+    labels['ko' + r] = knockoutLabel(cnt * 2);
+  }
+  let groupOf = {};
+  if (matches.some(m => m.stage === 'group')) {
+    const rows = await qAll('SELECT id, group_name FROM teams WHERE season_id = ?', [seasonId]);
+    groupOf = Object.fromEntries(rows.map(t => [t.id, t.group_name]));
+  }
+  return matches.map(m => {
+    if (m.stage === 'knockout') return { ...m, stage_label: labels['ko' + m.round] };
+    if (m.stage === 'group') return { ...m, stage_label: `${groupOf[m.home_team_id] || '?'} Grubu · ${m.round}. Hafta`, group_name: groupOf[m.home_team_id] };
+    return { ...m, stage_label: `${m.round}. Hafta` };
+  });
 }
 
 async function decorateAll(matches) {
@@ -61,15 +82,38 @@ publicRouter.get('/season', ah(async (req, res) => {
 
 publicRouter.get('/standings', ah(async (req, res) => {
   const season = await getActiveSeason(reqSport(req));
-  if (!season) return res.json({ standings: [], sport: reqSport(req) });
-  res.json({ standings: await computeStandings(season.id), sport: season.sport });
+  if (!season) return res.json({ standings: [], sport: reqSport(req), format: 'league' });
+  const format = season.format || 'league';
+  const out = { sport: season.sport, format, standings: [], groups: [], knockout: [] };
+  if (format === 'league') {
+    out.standings = await computeStandings(season.id);
+  } else if (format === 'groups_knockout') {
+    const groups = await qAll(
+      'SELECT DISTINCT group_name FROM teams WHERE season_id = ? AND group_name IS NOT NULL ORDER BY group_name', [season.id]);
+    for (const g of groups) {
+      out.groups.push({ name: g.group_name, standings: await computeStandings(season.id, g.group_name) });
+    }
+  }
+  // Eleme agaci (varsa)
+  let ko = await qAll("SELECT * FROM matches WHERE season_id = ? AND stage = 'knockout' ORDER BY round, id", [season.id]);
+  if (ko.length) {
+    ko = await stageLabels(season.id, ko);
+    const decorated = await decorateAll(ko);
+    const rounds = [...new Set(decorated.map(m => m.round))].sort((a, b) => a - b);
+    out.knockout = rounds.map(r => ({
+      label: decorated.find(m => m.round === r)?.stage_label,
+      matches: decorated.filter(m => m.round === r)
+    }));
+  }
+  res.json(out);
 }));
 
 publicRouter.get('/fixtures', ah(async (req, res) => {
   const season = await getActiveSeason(reqSport(req));
   if (!season) return res.json({ matches: [] });
-  const matches = await qAll('SELECT * FROM matches WHERE season_id = ? ORDER BY round, scheduled_at, id', [season.id]);
-  res.json({ matches: await decorateAll(matches) });
+  let matches = await qAll('SELECT * FROM matches WHERE season_id = ? ORDER BY round, scheduled_at, id', [season.id]);
+  matches = await stageLabels(season.id, matches);
+  res.json({ matches: await decorateAll(matches), format: season.format || 'league' });
 }));
 
 publicRouter.get('/live-matches', ah(async (req, res) => {

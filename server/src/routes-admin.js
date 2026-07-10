@@ -3,6 +3,7 @@ import { qGet, qAll, qRun, qInsert, hashPassword, getSetting, setSetting, getAct
 import { requireRole, ah } from './auth.js';
 import { upload } from './uploads.js';
 import { SPORT_KEYS, sportOf } from './sports.js';
+import { createKnockoutBracket } from './tournament.js';
 
 export const adminRouter = Router();
 adminRouter.use(requireRole('admin'));
@@ -65,8 +66,12 @@ adminRouter.post('/seasons', ah(async (req, res) => {
   // Futbol kart kurallari (0/bos = kural kapali)
   const yl = Number(req.body.yellow_limit) || 0;
   const rb = req.body.red_ban ? 1 : 0;
-  const id = await qInsert('INSERT INTO seasons (name, sport, court_size, yellow_limit, red_ban, is_active) VALUES (?, ?, ?, ?, ?, 0)',
-    [name, sport, cs, yl, rb]);
+  const format = ['league', 'groups_knockout', 'knockout'].includes(req.body.format) ? req.body.format : 'league';
+  const gc = format === 'groups_knockout' ? Math.max(2, Math.min(8, Number(req.body.group_count) || 2)) : null;
+  const ac = format === 'groups_knockout' ? Math.max(1, Math.min(4, Number(req.body.advance_count) || 2)) : null;
+  const id = await qInsert(
+    'INSERT INTO seasons (name, sport, court_size, yellow_limit, red_ban, format, group_count, advance_count, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)',
+    [name, sport, cs, yl, rb, format, gc, ac]);
   res.json({ id });
 }));
 adminRouter.post('/seasons/:id/activate', ah(async (req, res) => {
@@ -143,6 +148,48 @@ adminRouter.post('/fixtures/generate', ah(async (req, res) => {
   const teams = (await qAll('SELECT id FROM teams WHERE season_id = ?', [season.id])).map(t => t.id);
   if (teams.length < 2) return res.status(400).json({ error: 'En az 2 takim gerekli' });
   await qRun('DELETE FROM matches WHERE season_id = ?', [season.id]);
+  await qRun('UPDATE teams SET group_name = NULL WHERE season_id = ?', [season.id]);
+  await qRun('UPDATE seasons SET knockout_byes = NULL WHERE id = ?', [season.id]);
+  const bestOfKO = [3, 5].includes(Number(req.body.best_of)) ? Number(req.body.best_of) : (sportOf(season.sport).defaultBestOf || 5);
+
+  // --- DIREKT ELEME ---
+  if (season.format === 'knockout') {
+    await createKnockoutBracket(season, teams, bestOfKO);
+    return res.json({ ok: true, format: 'knockout' });
+  }
+
+  // --- GRUPLAR + ELEME: kura cek, grup ici lig fikstürleri ---
+  if (season.format === 'groups_knockout') {
+    const gc = season.group_count || 2;
+    if (teams.length < gc * 2) return res.status(400).json({ error: `${gc} grup icin en az ${gc * 2} takim gerekli` });
+    const shuffled = [...teams].sort(() => Math.random() - .5);
+    const groups = Array.from({ length: gc }, () => []);
+    shuffled.forEach((t, i) => groups[i % gc].push(t));
+    const letters = 'ABCDEFGH';
+    for (let g = 0; g < gc; g++) {
+      for (const tid of groups[g]) {
+        await qRun('UPDATE teams SET group_name = ? WHERE id = ?', [letters[g], tid]);
+      }
+      // grup ici tek devreli lig
+      const ids = [...groups[g]];
+      if (ids.length % 2 === 1) ids.push(null);
+      const n = ids.length;
+      let roundNo = 1;
+      for (let r = 0; r < n - 1; r++) {
+        for (let i = 0; i < n / 2; i++) {
+          const a = ids[i], b = ids[n - 1 - i];
+          if (a !== null && b !== null) {
+            const [h, aw] = r % 2 === 0 ? [a, b] : [b, a];
+            await qRun("INSERT INTO matches (season_id, round, home_team_id, away_team_id, best_of, stage) VALUES (?, ?, ?, ?, ?, 'group')",
+              [season.id, roundNo, h, aw, bestOfKO]);
+          }
+        }
+        roundNo++;
+        ids.splice(1, 0, ids.pop());
+      }
+    }
+    return res.json({ ok: true, format: 'groups_knockout', groups: gc });
+  }
 
   const ids = [...teams];
   if (ids.length % 2 === 1) ids.push(null);

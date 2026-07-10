@@ -236,11 +236,11 @@ function FixtureTab({ flash }) {
       </div>
       <div className="card">
         <table>
-          <thead><tr><th>Hafta</th><th>Maç</th><th>Durum</th><th>Tarih/Saat</th></tr></thead>
+          <thead><tr><th>Aşama</th><th>Maç</th><th>Durum</th><th>Tarih/Saat</th></tr></thead>
           <tbody>
             {matches.map(m => (
               <tr key={m.id}>
-                <td>{m.round}</td>
+                <td>{m.stage_label || m.round}</td>
                 <td>{m.home_team} — {m.away_team} {m.status !== 'scheduled' && <b>({m.home_sets}-{m.away_sets})</b>}</td>
                 <td><span className={`badge ${m.status}`}>{m.status === 'live' ? 'CANLI' : m.status === 'finished' ? 'Bitti' : 'Planlandı'}</span></td>
                 <td>
@@ -349,11 +349,14 @@ function SeasonsTab({ flash }) {
   const [courtSize, setCourtSize] = useState(DEFAULT_COURT.volleyball);
   const [yellowLimit, setYellowLimit] = useState(2);
   const [redBan, setRedBan] = useState(true);
+  const [format, setFormat] = useState('league');
+  const [groupCount, setGroupCount] = useState(2);
+  const [advanceCount, setAdvanceCount] = useState(2);
   const load = () => api('/admin/seasons').then(d => setSeasons(d.seasons));
   useEffect(() => { load(); }, []);
   const add = async (e) => {
     e.preventDefault();
-    try { await api('/admin/seasons', { method: 'POST', body: { name, sport, court_size: Number(courtSize), yellow_limit: sport === 'football' ? Number(yellowLimit) : 0, red_ban: sport === 'football' ? redBan : false } }); flash('Sezon eklendi.'); setName(''); load(); }
+    try { await api('/admin/seasons', { method: 'POST', body: { name, sport, court_size: Number(courtSize), yellow_limit: sport === 'football' ? Number(yellowLimit) : 0, red_ban: sport === 'football' ? redBan : false, format, group_count: Number(groupCount), advance_count: Number(advanceCount) } }); flash('Sezon eklendi.'); setName(''); load(); }
     catch (err) { flash(err.message, false); }
   };
   const activate = async (id) => {
@@ -372,6 +375,27 @@ function SeasonsTab({ flash }) {
               {SPORT_OPTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
             </select>
           </div>
+          <div><label>Turnuva Formatı</label>
+            <select value={format} onChange={e => setFormat(e.target.value)}>
+              <option value="league">Lig Usulü (herkes herkesle)</option>
+              <option value="groups_knockout">Gruplar + Eleme</option>
+              <option value="knockout">Direkt Eleme</option>
+            </select>
+          </div>
+          {format === 'groups_knockout' && (
+            <>
+              <div><label>Grup Sayısı</label>
+                <select value={groupCount} onChange={e => setGroupCount(e.target.value)}>
+                  {[2, 3, 4].map(n => <option key={n} value={n}>{n} grup</option>)}
+                </select>
+              </div>
+              <div><label>Gruptan Çıkacak Takım</label>
+                <select value={advanceCount} onChange={e => setAdvanceCount(e.target.value)}>
+                  {[1, 2].map(n => <option key={n} value={n}>İlk {n}</option>)}
+                </select>
+              </div>
+            </>
+          )}
           <div><label>Saha İçi Oyuncu Sayısı</label>
             <select value={courtSize} onChange={e => setCourtSize(e.target.value)}>
               {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(n => <option key={n} value={n}>{n} oyuncu</option>)}
@@ -406,7 +430,7 @@ function SeasonsTab({ flash }) {
             {seasons.map(se => (
               <tr key={se.id}>
                 <td><b>{se.name}</b></td>
-                <td>{L[se.sport]}</td>
+                <td>{L[se.sport]}<div className="muted" style={{ fontSize: 11 }}>{{ league: 'Lig', groups_knockout: 'Grup+Eleme', knockout: 'Eleme' }[se.format || 'league']}</div></td>
                 <td>{se.court_size || DEFAULT_COURT[se.sport] || 6}
                   {se.sport === 'football' && <div className="muted" style={{ fontSize: 11 }}>
                     {se.yellow_limit ? `${se.yellow_limit} sarı = ceza` : 'sarı kuralı yok'}{se.red_ban ? ' · kırmızı = ceza' : ''}
