@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { useAuth } from '../App.jsx';
 
-const TABS = ['Onaylar', 'Takımlar', 'Kullanıcılar', 'Fikstür', 'Sezonlar', 'Cezalar', 'Ayarlar'];
+const TABS = ['Onaylar', 'Takımlar', 'Kullanıcılar', 'Fikstür', 'Sezonlar', 'Tahsilat', 'Cezalar', 'Ayarlar'];
 const SPORT_OPTS = [
   { key: 'volleyball', label: 'Voleybol' },
   { key: 'beach_volleyball', label: 'Plaj Voleybolu' },
@@ -35,6 +35,7 @@ export default function AdminPanel() {
       {tab === 'Kullanıcılar' && <UsersTab flash={flash} />}
       {tab === 'Fikstür' && <FixtureTab flash={flash} />}
       {tab === 'Sezonlar' && <SeasonsTab flash={flash} />}
+      {tab === 'Tahsilat' && <BillingTab flash={flash} />}
       {tab === 'Cezalar' && <PenaltiesTab flash={flash} />}
       {tab === 'Ayarlar' && <SettingsTab flash={flash} />}
     </>
@@ -352,6 +353,7 @@ function SeasonsTab({ flash }) {
   const [format, setFormat] = useState('league');
   const [foulLimit, setFoulLimit] = useState(5);
   const [twoLegged, setTwoLegged] = useState(false);
+  const [entryFee, setEntryFee] = useState('');
   const [periodCount, setPeriodCount] = useState(4);
   const [groupCount, setGroupCount] = useState(2);
   const [advanceCount, setAdvanceCount] = useState(2);
@@ -359,7 +361,7 @@ function SeasonsTab({ flash }) {
   useEffect(() => { load(); }, []);
   const add = async (e) => {
     e.preventDefault();
-    try { await api('/admin/seasons', { method: 'POST', body: { name, sport, court_size: Number(courtSize), yellow_limit: sport === 'football' ? Number(yellowLimit) : 0, red_ban: sport === 'football' ? redBan : false, format, group_count: Number(groupCount), advance_count: Number(advanceCount), foul_limit: sport === 'basketball' ? Number(foulLimit) : 0, period_count: sport === 'basketball' ? Number(periodCount) : null, two_legged: format !== 'league' && twoLegged } }); flash('Sezon eklendi.'); setName(''); load(); }
+    try { await api('/admin/seasons', { method: 'POST', body: { name, sport, court_size: Number(courtSize), yellow_limit: sport === 'football' ? Number(yellowLimit) : 0, red_ban: sport === 'football' ? redBan : false, format, group_count: Number(groupCount), advance_count: Number(advanceCount), foul_limit: sport === 'basketball' ? Number(foulLimit) : 0, period_count: sport === 'basketball' ? Number(periodCount) : null, two_legged: format !== 'league' && twoLegged, entry_fee: entryFee ? Number(entryFee) : 0 } }); flash('Sezon eklendi.'); setName(''); load(); }
     catch (err) { flash(err.message, false); }
   };
   const activate = async (id) => {
@@ -377,6 +379,9 @@ function SeasonsTab({ flash }) {
             <select value={sport} onChange={e => { setSport(e.target.value); setCourtSize(DEFAULT_COURT[e.target.value] || 6); }}>
               {SPORT_OPTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
             </select>
+          </div>
+          <div><label>Katılım Ücreti (₺, takım başı — boş = ücretsiz)</label>
+            <input type="number" min="0" step="0.01" value={entryFee} onChange={e => setEntryFee(e.target.value)} placeholder="örn. 15000" />
           </div>
           <div><label>Turnuva Formatı</label>
             <select value={format} onChange={e => setFormat(e.target.value)}>
@@ -476,6 +481,162 @@ function SeasonsTab({ flash }) {
           </tbody>
         </table>
       </div>
+    </>
+  );
+}
+
+
+const PAY_METHOD = { havale: 'Havale/EFT', nakit: 'Nakit', kart: 'Kredi Kartı', diger: 'Diğer' };
+const tl = (n) => (Number(n) || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺';
+
+function BillingTab({ flash }) {
+  const [sport, setSport] = useState('volleyball');
+  const [data, setData] = useState(null);
+  const [fee, setFee] = useState('');
+  const [billModal, setBillModal] = useState(null);   // takim fatura bilgileri
+  const [payModal, setPayModal] = useState(null);     // odeme ekleme + gecmis
+  const load = () => api(`/admin/billing?sport=${sport}`).then(d => { setData(d); setFee(d.season?.entry_fee || ''); });
+  useEffect(() => { load(); }, [sport]);
+  if (!data) return null;
+  const season = data.season;
+  const feeNum = Number(season?.entry_fee) || 0;
+  const expected = feeNum * (data.teams?.length || 0);
+  const collected = (data.teams || []).reduce((a, t) => a + Number(t.paid), 0);
+  const statusOf = (t) => {
+    if (!feeNum) return t.paid > 0 ? 'approved' : 'finished';
+    if (t.paid >= feeNum) return 'approved';
+    return t.paid > 0 ? 'pending' : 'rejected';
+  };
+  const statusLabel = { approved: 'Ödendi', pending: 'Kısmi', rejected: 'Bekliyor', finished: '-' };
+
+  const saveFee = async () => {
+    try { await api(`/admin/seasons/${season.id}/fee`, { method: 'PUT', body: { entry_fee: Number(fee) || 0 } }); flash('Ücret güncellendi.'); load(); }
+    catch (e) { flash(e.message, false); }
+  };
+
+  const exportCsv = () => {
+    const rows = [['Takım', 'Şirket', 'Fatura Ünvanı', 'Vergi Dairesi', 'Vergi No', 'Adres', 'E-posta', 'Ücret', 'Ödenen', 'Kalan', 'Durum']];
+    for (const t of data.teams) {
+      rows.push([t.name, t.company || '', t.billing_title || '', t.tax_office || '', t.tax_number || '',
+        (t.billing_address || '').replace(/\n/g, ' '), t.billing_email || '',
+        feeNum, t.paid, Math.max(0, feeNum - t.paid), statusLabel[statusOf(t)]]);
+    }
+    const csv = '\ufeff' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = `tahsilat-${season?.name || 'sezon'}.csv`;
+    a.click();
+  };
+
+  return (
+    <>
+      <div className="tabs">
+        {SPORT_OPTS.map(s => <button key={s.key} className={sport === s.key ? 'active' : ''} onClick={() => setSport(s.key)}>{s.label}</button>)}
+      </div>
+      {!season ? <p className="muted">Bu branşta aktif sezon yok.</p> : (
+        <>
+          <div className="grid cols3">
+            <div className="card"><p className="muted">Beklenen Toplam</p><h2 style={{ margin: 0 }}>{tl(expected)}</h2></div>
+            <div className="card"><p className="muted">Tahsil Edilen</p><h2 style={{ margin: 0, color: 'var(--green)' }}>{tl(collected)}</h2></div>
+            <div className="card"><p className="muted">Kalan</p><h2 style={{ margin: 0, color: 'var(--accent)' }}>{tl(Math.max(0, expected - collected))}</h2></div>
+          </div>
+          <div className="card" style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div><label>Katılım Ücreti (takım başı, ₺)</label>
+              <input type="number" min="0" step="0.01" style={{ width: 160 }} value={fee} onChange={e => setFee(e.target.value)} /></div>
+            <button className="btn primary" onClick={saveFee}>Kaydet</button>
+            <span style={{ flex: 1 }} />
+            <button className="btn" onClick={exportCsv}>📄 Muhasebe Raporu (CSV)</button>
+          </div>
+          <div className="card">
+            <table>
+              <thead><tr><th>Takım</th><th>Fatura Bilgileri</th><th className="num">Ödenen</th><th className="num">Kalan</th><th>Durum</th><th></th></tr></thead>
+              <tbody>
+                {data.teams.map(t => (
+                  <tr key={t.id}>
+                    <td><b>{t.name}</b><div className="muted">{t.company}</div></td>
+                    <td>
+                      {t.billing_title
+                        ? <>{t.billing_title}<div className="muted">{t.tax_office} / {t.tax_number}</div></>
+                        : <span className="muted" style={{ color: 'var(--accent2)' }}>Eksik</span>}
+                      {' '}<button className="btn sm" onClick={() => setBillModal({ ...t })}>Düzenle</button>
+                    </td>
+                    <td className="num">{tl(t.paid)}</td>
+                    <td className="num">{tl(Math.max(0, feeNum - t.paid))}</td>
+                    <td><span className={`badge ${statusOf(t)}`}>{statusLabel[statusOf(t)]}</span></td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button className="btn sm green" onClick={() => setPayModal({ team: t, amount: Math.max(0, feeNum - t.paid) || '', method: 'havale', paid_at: new Date().toISOString().slice(0, 10), note: '', invoice_no: '' })}>Ödeme Ekle</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {billModal && (
+            <div className="goal-modal-backdrop" onClick={() => setBillModal(null)}>
+              <div className="goal-modal card" onClick={e => e.stopPropagation()}>
+                <h2 style={{ marginTop: 0 }}>Fatura Bilgileri — {billModal.name}</h2>
+                <label>Fatura Ünvanı</label><input value={billModal.billing_title || ''} onChange={e => setBillModal({ ...billModal, billing_title: e.target.value })} />
+                <div className="formrow">
+                  <div><label>Vergi Dairesi</label><input value={billModal.tax_office || ''} onChange={e => setBillModal({ ...billModal, tax_office: e.target.value })} /></div>
+                  <div><label>Vergi No / TCKN</label><input value={billModal.tax_number || ''} onChange={e => setBillModal({ ...billModal, tax_number: e.target.value })} /></div>
+                </div>
+                <label>Fatura Adresi</label><input value={billModal.billing_address || ''} onChange={e => setBillModal({ ...billModal, billing_address: e.target.value })} />
+                <label>Fatura E-postası</label><input type="email" value={billModal.billing_email || ''} onChange={e => setBillModal({ ...billModal, billing_email: e.target.value })} />
+                <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                  <button className="btn primary" style={{ flex: 1 }} onClick={async () => {
+                    try { await api(`/admin/teams/${billModal.id}/billing`, { method: 'PUT', body: billModal }); flash('Fatura bilgileri kaydedildi.'); setBillModal(null); load(); }
+                    catch (e) { flash(e.message, false); }
+                  }}>Kaydet</button>
+                  <button className="btn" onClick={() => setBillModal(null)}>Vazgeç</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {payModal && (
+            <div className="goal-modal-backdrop" onClick={() => setPayModal(null)}>
+              <div className="goal-modal card" onClick={e => e.stopPropagation()}>
+                <h2 style={{ marginTop: 0 }}>💰 Ödeme — {payModal.team.name}</h2>
+                <div className="formrow">
+                  <div><label>Tutar (₺)</label><input type="number" min="0" step="0.01" value={payModal.amount} onChange={e => setPayModal({ ...payModal, amount: e.target.value })} /></div>
+                  <div><label>Yöntem</label>
+                    <select value={payModal.method} onChange={e => setPayModal({ ...payModal, method: e.target.value })}>
+                      {Object.entries(PAY_METHOD).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    </select>
+                  </div>
+                  <div><label>Tarih</label><input type="date" value={payModal.paid_at} onChange={e => setPayModal({ ...payModal, paid_at: e.target.value })} /></div>
+                </div>
+                <div className="formrow">
+                  <div><label>Fatura No (kesildiyse)</label><input value={payModal.invoice_no} onChange={e => setPayModal({ ...payModal, invoice_no: e.target.value })} /></div>
+                  <div><label>Not</label><input value={payModal.note} onChange={e => setPayModal({ ...payModal, note: e.target.value })} /></div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                  <button className="btn green" style={{ flex: 1 }} onClick={async () => {
+                    try {
+                      await api('/admin/payments', { method: 'POST', body: { team_id: payModal.team.id, amount: Number(payModal.amount), method: payModal.method, paid_at: payModal.paid_at, note: payModal.note, invoice_no: payModal.invoice_no } });
+                      flash('Ödeme kaydedildi.'); setPayModal(null); load();
+                    } catch (e) { flash(e.message, false); }
+                  }}>Kaydet</button>
+                  <button className="btn" onClick={() => setPayModal(null)}>Vazgeç</button>
+                </div>
+                {data.payments.filter(p => p.team_id === payModal.team.id).length > 0 && (
+                  <>
+                    <h2 style={{ fontSize: 14, marginTop: 16 }}>Geçmiş Ödemeler</h2>
+                    {data.payments.filter(p => p.team_id === payModal.team.id).map(p => (
+                      <p key={p.id} style={{ fontSize: 13, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+                        {tl(p.amount)} · {PAY_METHOD[p.method]} · {p.paid_at || p.created_at?.slice(0, 10)}
+                        {p.invoice_no && <span className="muted"> · Fatura: {p.invoice_no}</span>}
+                        {' '}<button className="btn sm red" onClick={async () => { await api(`/admin/payments/${p.id}`, { method: 'DELETE' }); load(); setPayModal(null); }}>Sil</button>
+                      </p>
+                    ))}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </>
   );
 }

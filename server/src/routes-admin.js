@@ -73,9 +73,10 @@ adminRouter.post('/seasons', ah(async (req, res) => {
   const gc = format === 'groups_knockout' ? Math.max(2, Math.min(8, Number(req.body.group_count) || 2)) : null;
   const ac = format === 'groups_knockout' ? Math.max(1, Math.min(4, Number(req.body.advance_count) || 2)) : null;
   const tl = format !== 'league' && req.body.two_legged ? 1 : 0;
+  const fee = Number(req.body.entry_fee) > 0 ? Number(req.body.entry_fee) : null;
   const id = await qInsert(
-    'INSERT INTO seasons (name, sport, court_size, yellow_limit, red_ban, foul_limit, period_count, two_legged, format, group_count, advance_count, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)',
-    [name, sport, cs, yl, rb, fl, pc, tl, format, gc, ac]);
+    'INSERT INTO seasons (name, sport, court_size, yellow_limit, red_ban, foul_limit, period_count, two_legged, entry_fee, format, group_count, advance_count, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)',
+    [name, sport, cs, yl, rb, fl, pc, tl, fee, format, gc, ac]);
   res.json({ id });
 }));
 adminRouter.post('/seasons/:id/activate', ah(async (req, res) => {
@@ -253,6 +254,52 @@ adminRouter.post('/penalties', ah(async (req, res) => {
 }));
 adminRouter.delete('/penalties/:id', ah(async (req, res) => {
   await qRun('DELETE FROM penalties WHERE id = ?', [req.params.id]);
+  res.json({ ok: true });
+}));
+
+// --- Tahsilat / Fatura ---
+adminRouter.get('/billing', ah(async (req, res) => {
+  const season = await getActiveSeason(SPORT_KEYS.includes(req.query.sport) ? req.query.sport : 'volleyball');
+  if (!season) return res.json({ season: null, teams: [] });
+  const teams = await qAll(`
+    SELECT t.id, t.name, t.company, t.billing_title, t.tax_office, t.tax_number, t.billing_address, t.billing_email,
+      COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.team_id = t.id), 0) AS paid
+    FROM teams t WHERE t.season_id = ? ORDER BY t.name
+  `, [season.id]);
+  const payments = await qAll(`
+    SELECT p.*, t.name AS team_name FROM payments p JOIN teams t ON t.id = p.team_id
+    WHERE t.season_id = ? ORDER BY p.id DESC
+  `, [season.id]);
+  res.json({ season, teams, payments });
+}));
+
+adminRouter.put('/seasons/:id/fee', ah(async (req, res) => {
+  const fee = Number(req.body.entry_fee);
+  if (!(fee >= 0)) return res.status(400).json({ error: 'Gecerli bir ucret girin' });
+  await qRun('UPDATE seasons SET entry_fee = ? WHERE id = ?', [fee || null, req.params.id]);
+  res.json({ ok: true });
+}));
+
+adminRouter.put('/teams/:id/billing', ah(async (req, res) => {
+  const f = req.body;
+  await qRun(
+    'UPDATE teams SET billing_title = ?, tax_office = ?, tax_number = ?, billing_address = ?, billing_email = ? WHERE id = ?',
+    [f.billing_title || null, f.tax_office || null, f.tax_number || null, f.billing_address || null, f.billing_email || null, req.params.id]);
+  res.json({ ok: true });
+}));
+
+adminRouter.post('/payments', ah(async (req, res) => {
+  const { team_id, amount, method, paid_at, note, invoice_no } = req.body;
+  if (!team_id || !(Number(amount) > 0)) return res.status(400).json({ error: 'Takim ve tutar zorunlu' });
+  const m = ['havale', 'nakit', 'kart', 'diger'].includes(method) ? method : 'havale';
+  const id = await qInsert(
+    'INSERT INTO payments (team_id, amount, method, paid_at, note, invoice_no) VALUES (?, ?, ?, ?, ?, ?)',
+    [team_id, Number(amount), m, paid_at || null, note || null, invoice_no || null]);
+  res.json({ id });
+}));
+
+adminRouter.delete('/payments/:id', ah(async (req, res) => {
+  await qRun('DELETE FROM payments WHERE id = ?', [req.params.id]);
   res.json({ ok: true });
 }));
 

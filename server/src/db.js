@@ -137,6 +137,7 @@ CREATE TABLE IF NOT EXISTS seasons (
   foul_limit INTEGER,
   period_count INTEGER,
   two_legged INTEGER,
+  entry_fee REAL,
   format TEXT NOT NULL DEFAULT 'league' CHECK (format IN ('league','groups_knockout','knockout')),
   group_count INTEGER,
   advance_count INTEGER,
@@ -150,6 +151,11 @@ CREATE TABLE IF NOT EXISTS teams (
   company TEXT,
   logo_path TEXT,
   group_name TEXT,
+  billing_title TEXT,
+  tax_office TEXT,
+  tax_number TEXT,
+  billing_address TEXT,
+  billing_email TEXT,
   created_at TEXT NOT NULL DEFAULT ${NOW}
 );
 CREATE TABLE IF NOT EXISTS users (
@@ -217,6 +223,16 @@ CREATE TABLE IF NOT EXISTS stat_events (
   related_id INTEGER,
   created_at TEXT NOT NULL DEFAULT ${NOW}
 );
+CREATE TABLE IF NOT EXISTS payments (
+  id ${PK},
+  team_id INTEGER NOT NULL REFERENCES teams(id),
+  amount REAL NOT NULL,
+  method TEXT NOT NULL DEFAULT 'havale' CHECK (method IN ('havale','nakit','kart','diger')),
+  paid_at TEXT,
+  note TEXT,
+  invoice_no TEXT,
+  created_at TEXT NOT NULL DEFAULT ${NOW}
+);
 CREATE TABLE IF NOT EXISTS penalties (
   id ${PK},
   player_id INTEGER NOT NULL REFERENCES players(id),
@@ -250,6 +266,12 @@ export async function initSchema() {
     'ALTER TABLE seasons ADD COLUMN foul_limit INTEGER',
     'ALTER TABLE seasons ADD COLUMN period_count INTEGER',
     'ALTER TABLE seasons ADD COLUMN two_legged INTEGER',
+    'ALTER TABLE seasons ADD COLUMN entry_fee REAL',
+    'ALTER TABLE teams ADD COLUMN billing_title TEXT',
+    'ALTER TABLE teams ADD COLUMN tax_office TEXT',
+    'ALTER TABLE teams ADD COLUMN tax_number TEXT',
+    'ALTER TABLE teams ADD COLUMN billing_address TEXT',
+    'ALTER TABLE teams ADD COLUMN billing_email TEXT',
     'ALTER TABLE matches ADD COLUMN leg INTEGER',
     'ALTER TABLE matches ADD COLUMN shootout_home INTEGER',
     'ALTER TABLE matches ADD COLUMN shootout_away INTEGER',
