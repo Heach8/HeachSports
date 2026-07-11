@@ -10,6 +10,7 @@ import PlayerDetail from './pages/PlayerDetail.jsx';
 import Leaders from './pages/Leaders.jsx';
 import MatchDetail from './pages/MatchDetail.jsx';
 import Scoreboard from './pages/Scoreboard.jsx';
+import Overlay from './pages/Overlay.jsx';
 import Login from './pages/Login.jsx';
 import ChangePassword from './pages/ChangePassword.jsx';
 import CaptainPanel from './pages/CaptainPanel.jsx';
@@ -61,6 +62,7 @@ export default function App() {
       <SportCtx.Provider value={{ sport, setSport, sports }}>
         <Routes>
           <Route path="/scoreboard/:id" element={<Scoreboard />} />
+          <Route path="/overlay/:id" element={<Overlay />} />
           <Route path="*" element={
             <>
               <nav className="nav">

@@ -292,3 +292,21 @@ body { overflow-x: hidden; }
 .teamfoul.bonus { background: var(--red); color: #fff; animation: pulse 1.5s infinite; }
 .chip.fouledout { opacity: .55; }
 .chip.fouledout .chip-head { background: rgba(218,54,51,.25); }
+
+/* --- Yayin overlay'i (OBS scorebug) --- */
+.scorebug { position: relative; display: flex; align-items: stretch; width: fit-content; margin: 12px auto;
+  border-radius: 12px; overflow: hidden; font-family: 'Segoe UI', system-ui, sans-serif;
+  box-shadow: 0 4px 18px rgba(0,0,0,.55); }
+.sb-team { display: flex; align-items: center; gap: 10px; padding: 0 18px; min-width: 200px;
+  background: linear-gradient(180deg, #182136, #0e1526); }
+.sb-team.home { justify-content: flex-start; border-left: 5px solid var(--blue); }
+.sb-team.away { justify-content: flex-end; border-right: 5px solid var(--red); }
+.sb-team img { width: 34px; height: 34px; border-radius: 50%; }
+.sb-name { font-size: 20px; font-weight: 800; color: #fff; letter-spacing: .3px; white-space: nowrap; }
+.sb-score { display: flex; align-items: center; gap: 14px; padding: 8px 20px;
+  background: linear-gradient(180deg, #f59e0b, #d97706); }
+.sb-num { font-size: 40px; font-weight: 900; color: #0d1117; min-width: 52px; text-align: center;
+  line-height: 1; animation: scorepop .35s ease; }
+.sb-mid { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 74px; }
+.sb-stage { font-size: 12px; font-weight: 800; color: #0d1117; letter-spacing: 1px; }
+.sb-sub { font-size: 13px; font-weight: 700; color: rgba(13,17,23,.75); white-space: nowrap; }
