@@ -310,3 +310,21 @@ body { overflow-x: hidden; }
 .sb-mid { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 74px; }
 .sb-stage { font-size: 12px; font-weight: 800; color: #0d1117; letter-spacing: 1px; }
 .sb-sub { font-size: 13px; font-weight: 700; color: rgba(13,17,23,.75); white-space: nowrap; }
+
+/* --- Overlay zenginlestirme: amblem, gol listesi, GOL bandi --- */
+.overlay-wrap { width: fit-content; margin: 12px auto 0; position: relative; }
+.overlay-wrap .scorebug { margin: 0 auto; }
+.sb-emblem { display: flex; justify-content: center; margin-top: -1px; }
+.sb-emblem img { height: 28px; background: #0e1526; padding: 4px 14px; border-radius: 0 0 10px 10px;
+  border: 1px solid rgba(245,158,11,.5); border-top: none; box-shadow: 0 4px 12px rgba(0,0,0,.4); }
+.sb-goals { display: flex; justify-content: space-between; gap: 30px; margin-top: 8px; }
+.sb-goals-col { display: flex; flex-direction: column; gap: 3px; min-width: 220px; }
+.sb-goals-col.away { align-items: flex-end; }
+.sb-goal { background: rgba(14, 21, 38, .88); color: #e8edf5; font-size: 14px; font-weight: 600;
+  padding: 3px 12px; border-radius: 6px; width: fit-content; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+.sb-banner { margin-top: 10px; text-align: center; font-size: 22px; font-weight: 900; color: #0d1117;
+  background: linear-gradient(90deg, #fbbf24, #f59e0b, #fbbf24); padding: 8px 24px; border-radius: 10px;
+  width: fit-content; margin-left: auto; margin-right: auto; box-shadow: 0 4px 18px rgba(245,158,11,.45);
+  animation: bannerin .4s ease; }
+.sb-banner-assist { font-size: 16px; font-weight: 700; color: rgba(13,17,23,.75); }
+@keyframes bannerin { from { transform: translateY(-14px) scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }

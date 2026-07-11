@@ -209,6 +209,7 @@ CREATE TABLE IF NOT EXISTS match_sets (
   home_points INTEGER NOT NULL DEFAULT 0,
   away_points INTEGER NOT NULL DEFAULT 0,
   finished INTEGER NOT NULL DEFAULT 0,
+  started_at TEXT,
   UNIQUE (match_id, set_no)
 );
 CREATE TABLE IF NOT EXISTS stat_events (
@@ -275,6 +276,7 @@ export async function initSchema() {
     'ALTER TABLE matches ADD COLUMN leg INTEGER',
     'ALTER TABLE matches ADD COLUMN shootout_home INTEGER',
     'ALTER TABLE matches ADD COLUMN shootout_away INTEGER',
+    'ALTER TABLE match_sets ADD COLUMN started_at TEXT',
     'ALTER TABLE teams ADD COLUMN group_name TEXT',
     "ALTER TABLE matches ADD COLUMN stage TEXT NOT NULL DEFAULT 'league'"
   ]) {

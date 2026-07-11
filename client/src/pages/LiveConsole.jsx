@@ -395,7 +395,7 @@ export default function LiveConsole() {
               {(canFinish && !needExtra) || soDecided ? <button className="btn green" onClick={() => confirm('Maç bitirilsin mi? (Maçın oyuncusunu sonradan seçebilirsiniz)') && call('/finish', {})}>Maçı Bitir</button> : null}
               <Link className="btn" to={`/scoreboard/${m.id}`} target="_blank">Skorboard ↗</Link>
               <button className="btn" title="YouTube/OBS yayını için şeffaf skor bandı adresini kopyalar"
-                onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/overlay/${m.id}`); alert('Yayın overlay adresi kopyalandı!\n\nOBS > Kaynaklar > + > Tarayıcı (Browser Source) > URL alanına yapıştırın.\nÖnerilen boyut: 900 x 140'); }}>
+                onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/overlay/${m.id}`); alert('Yayın overlay adresi kopyalandı!\n\nOBS > Kaynaklar > + > Tarayıcı (Browser Source) > URL alanına yapıştırın.\nÖnerilen boyut: 900 x 320'); }}>
                 📺 Yayın Skoru (OBS)
               </button>
             </>

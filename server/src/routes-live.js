@@ -7,6 +7,8 @@ import { advanceAfterFinish, matchWinner } from './tournament.js';
 
 export const liveRouter = Router();
 const scorer = requireRole('scorekeeper', 'admin');
+const utcNow = () => new Date().toISOString().slice(0, 19).replace('T', ' ');
+const parseUtc = (s) => new Date(String(s).replace(' ', 'T') + (String(s).endsWith('Z') ? '' : 'Z'));
 
 async function matchSeason(match) {
   return (await qGet('SELECT sport, court_size, yellow_limit, red_ban, foul_limit, period_count FROM seasons WHERE id = ?', [match.season_id])) || {};
@@ -126,8 +128,37 @@ export async function getMatchState(matchId) {
       aggregate = { home: totals.home + leg1.away_sets, away: totals.away + leg1.home_sets };
     }
   }
+  // Futbol: gol listesi (periyot ici dakika + asist), overlay ve yayinlar icin
+  let goals = [];
+  if (sportKey === 'football') {
+    const setStart = Object.fromEntries(sets.map(x => [x.set_no, x.started_at]));
+    const rows = await qAll(`
+      SELECT e.id, e.set_no, e.team_id, e.type, e.detail, e.created_at,
+        p.first_name, p.last_name
+      FROM stat_events e LEFT JOIN players p ON p.id = e.player_id
+      WHERE e.match_id = ? AND e.type IN ('goal', 'own_goal') ORDER BY e.id
+    `, [matchId]);
+    for (const g of rows) {
+      const assist = await qGet(`
+        SELECT p.first_name, p.last_name FROM stat_events a JOIN players p ON p.id = a.player_id
+        WHERE a.related_id = ? AND a.type = 'assist' LIMIT 1
+      `, [g.id]);
+      let minute = null;
+      if (setStart[g.set_no] && g.created_at) {
+        const diff = parseUtc(g.created_at) - parseUtc(setStart[g.set_no]);
+        if (diff >= 0) minute = Math.floor(diff / 60000) + 1;
+      }
+      goals.push({
+        id: g.id, period: g.set_no, minute, team_id: g.team_id,
+        own_goal: g.type === 'own_goal', detail: g.detail,
+        scorer: g.type === 'own_goal' ? null : `${g.first_name} ${g.last_name}`,
+        assist: assist ? `${assist.first_name} ${assist.last_name}` : null
+      });
+    }
+  }
   return {
     match, sport: sportCfg,
+    goals,
     court_size: season.court_size || sportCfg.defaultCourtSize || 6,
     period_count: season.period_count || sportCfg.regularPeriods || null,
     leg1_score: leg1Score, aggregate,
@@ -154,7 +185,7 @@ liveRouter.post('/:matchId/start', scorer, ah(async (req, res) => {
   if (match.status === 'finished') return res.status(400).json({ error: 'Mac bitti' });
   if (match.status === 'scheduled') {
     await qRun("UPDATE matches SET status = 'live' WHERE id = ?", [id]);
-    await qRun('INSERT INTO match_sets (match_id, set_no) VALUES (?, 1) ON CONFLICT (match_id, set_no) DO NOTHING', [id]);
+    await qRun('INSERT INTO match_sets (match_id, set_no, started_at) VALUES (?, 1, ?) ON CONFLICT (match_id, set_no) DO NOTHING', [id, utcNow()]);
   }
   const state = await getMatchState(id);
   broadcast(id, state);
@@ -272,14 +303,14 @@ liveRouter.post('/:matchId/finish-set', scorer, ah(async (req, res) => {
     const updated = await qGet('SELECT * FROM matches WHERE id = ?', [id]);
     const needed = Math.floor(updated.best_of / 2) + 1;
     if (updated.home_sets < needed && updated.away_sets < needed) {
-      await qRun('INSERT INTO match_sets (match_id, set_no) VALUES (?, ?)', [id, current.set_no + 1]);
+      await qRun('INSERT INTO match_sets (match_id, set_no, started_at) VALUES (?, ?, ?)', [id, current.set_no + 1, utcNow()]);
     }
   } else {
     await qRun('UPDATE match_sets SET finished = 1 WHERE id = ?', [current.id]);
     const season2 = await matchSeason(match);
     const periods = season2.period_count || sport.regularPeriods;
     if (current.set_no < periods) {
-      await qRun('INSERT INTO match_sets (match_id, set_no) VALUES (?, ?)', [id, current.set_no + 1]);
+      await qRun('INSERT INTO match_sets (match_id, set_no, started_at) VALUES (?, ?, ?)', [id, current.set_no + 1, utcNow()]);
     }
   }
   const state = await getMatchState(id);
@@ -294,7 +325,7 @@ liveRouter.post('/:matchId/add-period', scorer, ah(async (req, res) => {
   const open = (await qGet('SELECT COUNT(*) AS c FROM match_sets WHERE match_id = ? AND finished = 0', [id])).c;
   if (open) return res.status(400).json({ error: 'Once acik periyodu bitirin' });
   const maxNo = (await qGet('SELECT MAX(set_no) AS m FROM match_sets WHERE match_id = ?', [id])).m || 0;
-  await qRun('INSERT INTO match_sets (match_id, set_no) VALUES (?, ?)', [id, maxNo + 1]);
+  await qRun('INSERT INTO match_sets (match_id, set_no, started_at) VALUES (?, ?, ?)', [id, maxNo + 1, utcNow()]);
   const state = await getMatchState(id);
   broadcast(id, state);
   res.json(state);
