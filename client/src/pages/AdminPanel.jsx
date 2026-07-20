@@ -200,22 +200,77 @@ function UsersTab({ flash }) {
 
 function FixtureTab({ flash }) {
   const [sport, setSport] = useState('volleyball');
+  const [season, setSeason] = useState(null);
   const [matches, setMatches] = useState([]);
+  const [allTeams, setAllTeams] = useState([]);
   const [doubleRound, setDoubleRound] = useState(false);
   const [bestOf, setBestOf] = useState(5);
-  const load = () => api(`/fixtures?sport=${sport}`).then(d => setMatches(d.matches));
-  useEffect(() => { load(); }, [sport]);
-  const generate = async () => {
+  // Manuel kura (noter cekimi) durumu
+  const [drawMode, setDrawMode] = useState('auto'); // auto | manual
+  const [drawn, setDrawn] = useState([]);           // lig/eleme: cekilis sirasi (takim id)
+  const [drawGroups, setDrawGroups] = useState({}); // gruplu: { A: [id], B: [id] }
+  const [activeGroup, setActiveGroup] = useState('A');
+
+  const load = () => {
+    api(`/fixtures?sport=${sport}`).then(d => setMatches(d.matches));
+    api(`/season?sport=${sport}`).then(d => setSeason(d.season));
+    api(`/teams?sport=${sport}`).then(d => setAllTeams(d.teams));
+  };
+  useEffect(() => { load(); setDrawn([]); setDrawGroups({}); setActiveGroup('A'); setDrawMode('auto'); }, [sport]);
+
+  const format = season?.format || 'league';
+  const letters = 'ABCDEFGH'.slice(0, season?.group_count || 2).split('');
+  const placedIds = format === 'groups_knockout'
+    ? Object.values(drawGroups).flat()
+    : drawn;
+  const remaining = allTeams.filter(t => !placedIds.includes(t.id));
+  const allPlaced = allTeams.length >= 2 && remaining.length === 0;
+  const nameOf = (id) => allTeams.find(t => t.id === id)?.name || id;
+
+  const pick = (t) => {
+    if (format === 'groups_knockout') {
+      setDrawGroups(g => ({ ...g, [activeGroup]: [...(g[activeGroup] || []), t.id] }));
+    } else {
+      setDrawn(d => [...d, t.id]);
+    }
+  };
+  const undoPick = () => {
+    if (format === 'groups_knockout') {
+      // en son eklenen takimi bul ve cikar
+      let lastG = null, lastIdx = -1;
+      for (const [g, arr] of Object.entries(drawGroups)) {
+        if (arr.length) { lastG = g; }
+      }
+      // basitce: aktif gruptan son ekleneni cikar; bos ise dolulardan birinden
+      const target = (drawGroups[activeGroup] || []).length ? activeGroup
+        : Object.keys(drawGroups).find(g => (drawGroups[g] || []).length);
+      if (!target) return;
+      setDrawGroups(g => ({ ...g, [target]: g[target].slice(0, -1) }));
+    } else {
+      setDrawn(d => d.slice(0, -1));
+    }
+  };
+
+  const generate = async (manual) => {
     if (matches.length && !confirm('Mevcut fikstür silinip yeniden oluşturulacak. Emin misiniz?')) return;
+    const body = { sport, double_round: doubleRound, best_of: Number(bestOf) };
+    if (manual) {
+      if (format === 'groups_knockout') body.draw_groups = drawGroups;
+      else body.draw_order = drawn;
+    }
     try {
-      const d = await api('/admin/fixtures/generate', { method: 'POST', body: { sport, double_round: doubleRound, best_of: Number(bestOf) } });
-      flash(`Fikstür oluşturuldu: ${d.rounds} hafta.`); load();
+      const d = await api('/admin/fixtures/generate', { method: 'POST', body });
+      flash(manual ? 'Fikstür noter kurasına göre oluşturuldu!' : `Fikstür oluşturuldu${d.rounds ? `: ${d.rounds} hafta` : ''}.`);
+      setDrawn([]); setDrawGroups({});
+      load();
     } catch (err) { flash(err.message, false); }
   };
+
   const setDate = async (m, value) => {
     try { await api(`/admin/matches/${m.id}`, { method: 'PUT', body: { scheduled_at: value } }); load(); }
     catch (err) { flash(err.message, false); }
   };
+
   return (
     <>
       <div className="tabs">
@@ -223,9 +278,16 @@ function FixtureTab({ flash }) {
       </div>
       <div className="card" style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
         <label style={{ display: 'flex', gap: 6, alignItems: 'center', margin: 0 }}>
+          Kura:
+          <select style={{ width: 'auto' }} value={drawMode} onChange={e => setDrawMode(e.target.value)}>
+            <option value="auto">Sistem kurası (rastgele)</option>
+            <option value="manual">Manuel kura (noter çekimi)</option>
+          </select>
+        </label>
+        {format === 'league' && <label style={{ display: 'flex', gap: 6, alignItems: 'center', margin: 0 }}>
           <input type="checkbox" style={{ width: 'auto' }} checked={doubleRound} onChange={e => setDoubleRound(e.target.checked)} />
           Çift devreli
-        </label>
+        </label>}
         {['volleyball', 'beach_volleyball'].includes(sport) && <label style={{ display: 'flex', gap: 6, alignItems: 'center', margin: 0 }}>
           Set formatı:
           <select style={{ width: 'auto' }} value={bestOf} onChange={e => setBestOf(e.target.value)}>
@@ -233,8 +295,74 @@ function FixtureTab({ flash }) {
             <option value={3}>3 set (2 kazanan)</option>
           </select>
         </label>}
-        <button className="btn primary" onClick={generate}>Fikstür Oluştur</button>
+        {drawMode === 'auto' && <button className="btn primary" onClick={() => generate(false)}>Fikstür Oluştur</button>}
+        <span className="muted" style={{ fontSize: 12 }}>
+          Format: {{ league: 'Lig', groups_knockout: `${season?.group_count || 2} Grup + Eleme`, knockout: 'Direkt Eleme' }[format]}
+        </span>
       </div>
+
+      {drawMode === 'manual' && (
+        <div className="card" style={{ border: '1px solid var(--accent)' }}>
+          <h2 style={{ marginTop: 0 }}>📜 Noter Kurası Yerleşimi</h2>
+          <p className="muted" style={{ fontSize: 13 }}>
+            {format === 'groups_knockout'
+              ? 'Önce hedef grubu seçin, sonra noterin çektiği takıma tıklayın — takım o gruba eklenir.'
+              : format === 'knockout'
+                ? 'Noterin çektiği sırayla takımlara tıklayın: 1. ve 2. çekilen ilk maçı, 3. ve 4. çekilen ikinci maçı oynar... (İlk çekilen ev sahibi olur.)'
+                : 'Noterin çektiği sırayla takımlara tıklayın; fikstür bu kura numaralarına göre kurulur.'}
+          </p>
+          {format === 'groups_knockout' && (
+            <div className="tabs">
+              {letters.map(g => (
+                <button key={g} className={activeGroup === g ? 'active' : ''} onClick={() => setActiveGroup(g)}>
+                  {g} Grubu ({(drawGroups[g] || []).length})
+                </button>
+              ))}
+            </div>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <label>Çekilmeyi Bekleyenler ({remaining.length})</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {remaining.map(t => (
+                  <button key={t.id} className="btn" onClick={() => pick(t)}>{t.name}</button>
+                ))}
+                {remaining.length === 0 && <span className="muted">Tüm takımlar yerleşti ✓</span>}
+              </div>
+            </div>
+            <div>
+              <label>Kura Sonucu</label>
+              {format === 'groups_knockout' ? (
+                <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                  {letters.map(g => (
+                    <div key={g}>
+                      <b>{g} Grubu</b>
+                      {(drawGroups[g] || []).map((id, i) => <div key={id} className="muted">{i + 1}. {nameOf(id)}</div>)}
+                    </div>
+                  ))}
+                </div>
+              ) : format === 'knockout' ? (
+                <div>
+                  {Array.from({ length: Math.ceil(drawn.length / 2) }, (_, i) => (
+                    <div key={i} className="muted">{i + 1}. Maç: <b>{nameOf(drawn[i * 2])}</b> — {drawn[i * 2 + 1] ? <b>{nameOf(drawn[i * 2 + 1])}</b> : '...'}</div>
+                  ))}
+                </div>
+              ) : (
+                drawn.map((id, i) => <div key={id} className="muted">{i + 1}. {nameOf(id)}</div>)
+              )}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+            <button className="btn" onClick={undoPick} disabled={placedIds.length === 0}>↩ Son Çekimi Geri Al</button>
+            <button className="btn" onClick={() => { setDrawn([]); setDrawGroups({}); }} disabled={placedIds.length === 0}>Sıfırla</button>
+            <span style={{ flex: 1 }} />
+            <button className="btn primary" disabled={!allPlaced} onClick={() => generate(true)}>
+              ✅ Fikstürü Bu Kuraya Göre Oluştur
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <table>
           <thead><tr><th>Aşama</th><th>Maç</th><th>Durum</th><th>Tarih/Saat</th></tr></thead>
@@ -257,7 +385,6 @@ function FixtureTab({ flash }) {
     </>
   );
 }
-
 function PenaltiesTab({ flash }) {
   const [penalties, setPenalties] = useState([]);
   const [players, setPlayers] = useState([]);

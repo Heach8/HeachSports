@@ -152,6 +152,25 @@ adminRouter.post('/fixtures/generate', ah(async (req, res) => {
   if (existing) return res.status(400).json({ error: 'Oynanmis/canli mac var, fikstur yeniden olusturulamaz' });
   const teams = (await qAll('SELECT id FROM teams WHERE season_id = ?', [season.id])).map(t => t.id);
   if (teams.length < 2) return res.status(400).json({ error: 'En az 2 takim gerekli' });
+
+  // --- Manuel kura (noter cekimi) dogrulamasi ---
+  const teamSet = new Set(teams);
+  const sameSet = (arr) => arr.length === teams.length && arr.every(t => teamSet.has(Number(t))) && new Set(arr.map(Number)).size === arr.length;
+  let drawOrder = null, drawGroups = null;
+  if (Array.isArray(req.body.draw_order) && req.body.draw_order.length) {
+    const order = req.body.draw_order.map(Number);
+    if (!sameSet(order)) return res.status(400).json({ error: 'Kura sirasi tum takimlari tam olarak bir kez icermeli' });
+    drawOrder = order;
+  }
+  if (req.body.draw_groups && typeof req.body.draw_groups === 'object') {
+    const flat = Object.values(req.body.draw_groups).flat().map(Number);
+    if (!sameSet(flat)) return res.status(400).json({ error: 'Gruplara dagitim tum takimlari tam olarak bir kez icermeli' });
+    for (const [g, arr] of Object.entries(req.body.draw_groups)) {
+      if (!Array.isArray(arr) || arr.length < 2) return res.status(400).json({ error: `${g} grubunda en az 2 takim olmali` });
+    }
+    drawGroups = req.body.draw_groups;
+  }
+
   await qRun('DELETE FROM matches WHERE season_id = ?', [season.id]);
   await qRun('UPDATE teams SET group_name = NULL WHERE season_id = ?', [season.id]);
   await qRun('UPDATE seasons SET knockout_byes = NULL WHERE id = ?', [season.id]);
@@ -159,18 +178,25 @@ adminRouter.post('/fixtures/generate', ah(async (req, res) => {
 
   // --- DIREKT ELEME ---
   if (season.format === 'knockout') {
-    await createKnockoutBracket(season, teams, bestOfKO);
-    return res.json({ ok: true, format: 'knockout' });
+    await createKnockoutBracket(season, drawOrder || teams, bestOfKO, 1, { ordered: !!drawOrder });
+    return res.json({ ok: true, format: 'knockout', manual_draw: !!drawOrder });
   }
 
   // --- GRUPLAR + ELEME: kura cek, grup ici lig fikstürleri ---
   if (season.format === 'groups_knockout') {
     const gc = season.group_count || 2;
     if (teams.length < gc * 2) return res.status(400).json({ error: `${gc} grup icin en az ${gc * 2} takim gerekli` });
-    const shuffled = [...teams].sort(() => Math.random() - .5);
-    const groups = Array.from({ length: gc }, () => []);
-    shuffled.forEach((t, i) => groups[i % gc].push(t));
     const letters = 'ABCDEFGH';
+    let groups;
+    if (drawGroups) {
+      // Noter kurasindaki dagitim aynen uygulanir
+      groups = Array.from({ length: gc }, (_, g) => (drawGroups[letters[g]] || []).map(Number));
+      if (groups.some(g => g.length < 2)) return res.status(400).json({ error: 'Her grupta en az 2 takim olmali (grup sayisi ayariyla uyumsuz dagitim)' });
+    } else {
+      const shuffled = [...teams].sort(() => Math.random() - .5);
+      groups = Array.from({ length: gc }, () => []);
+      shuffled.forEach((t, i) => groups[i % gc].push(t));
+    }
     for (let g = 0; g < gc; g++) {
       for (const tid of groups[g]) {
         await qRun('UPDATE teams SET group_name = ? WHERE id = ?', [letters[g], tid]);
@@ -196,7 +222,7 @@ adminRouter.post('/fixtures/generate', ah(async (req, res) => {
     return res.json({ ok: true, format: 'groups_knockout', groups: gc });
   }
 
-  const ids = [...teams];
+  const ids = [...(drawOrder || teams)];
   if (ids.length % 2 === 1) ids.push(null);
   const n = ids.length;
   const rounds = [];

@@ -49,8 +49,8 @@ export function tieWinner(leg1, leg2) {
 }
 
 // Direkt eleme: 1. tur (guc-2 degilse fazla takimlar on eleme oynar, digerleri bay gecer)
-export async function createKnockoutBracket(season, teamIds, bestOf, startRound = 1) {
-  const teams = shuffle(teamIds);
+export async function createKnockoutBracket(season, teamIds, bestOf, startRound = 1, opts = {}) {
+  const teams = opts.ordered ? [...teamIds] : shuffle(teamIds);
   let p = 1;
   while (p * 2 <= teams.length) p *= 2;              // brackete sigan guc-2
   const extra = teams.length - p;                     // on eleme oynayacak fazla takim ciftleri
