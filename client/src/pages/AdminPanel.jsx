@@ -484,11 +484,12 @@ function SeasonsTab({ flash }) {
   const [periodCount, setPeriodCount] = useState(4);
   const [groupCount, setGroupCount] = useState(2);
   const [advanceCount, setAdvanceCount] = useState(2);
+  const [groupMatches, setGroupMatches] = useState(0); // 0 = tam lig
   const load = () => api('/admin/seasons').then(d => setSeasons(d.seasons));
   useEffect(() => { load(); }, []);
   const add = async (e) => {
     e.preventDefault();
-    try { await api('/admin/seasons', { method: 'POST', body: { name, sport, court_size: Number(courtSize), yellow_limit: sport === 'football' ? Number(yellowLimit) : 0, red_ban: sport === 'football' ? redBan : false, format, group_count: Number(groupCount), advance_count: Number(advanceCount), foul_limit: sport === 'basketball' ? Number(foulLimit) : 0, period_count: sport === 'basketball' ? Number(periodCount) : null, two_legged: format !== 'league' && twoLegged, entry_fee: entryFee ? Number(entryFee) : 0 } }); flash('Sezon eklendi.'); setName(''); load(); }
+    try { await api('/admin/seasons', { method: 'POST', body: { name, sport, court_size: Number(courtSize), yellow_limit: sport === 'football' ? Number(yellowLimit) : 0, red_ban: sport === 'football' ? redBan : false, format, group_count: Number(groupCount), advance_count: Number(advanceCount), group_matches: Number(groupMatches) || 0, foul_limit: sport === 'basketball' ? Number(foulLimit) : 0, period_count: sport === 'basketball' ? Number(periodCount) : null, two_legged: format !== 'league' && twoLegged, entry_fee: entryFee ? Number(entryFee) : 0 } }); flash('Sezon eklendi.'); setName(''); load(); }
     catch (err) { flash(err.message, false); }
   };
   const activate = async (id) => {
@@ -551,7 +552,13 @@ function SeasonsTab({ flash }) {
               </div>
               <div><label>Gruptan Çıkacak Takım</label>
                 <select value={advanceCount} onChange={e => setAdvanceCount(e.target.value)}>
-                  {[1, 2].map(n => <option key={n} value={n}>İlk {n}</option>)}
+                  {[1, 2, 3, 4].map(n => <option key={n} value={n}>İlk {n}</option>)}
+                </select>
+              </div>
+              <div><label>Grup İçi Maç Sayısı</label>
+                <select value={groupMatches} onChange={e => setGroupMatches(e.target.value)}>
+                  <option value={0}>Herkes herkesle (tam lig)</option>
+                  {[2, 3, 4, 5, 6].map(n => <option key={n} value={n}>Takım başı {n} maç (kura ile)</option>)}
                 </select>
               </div>
             </>
@@ -594,6 +601,9 @@ function SeasonsTab({ flash }) {
                 <td>{se.court_size || DEFAULT_COURT[se.sport] || 6}
                   {se.sport === 'football' && <div className="muted" style={{ fontSize: 11 }}>
                     {se.yellow_limit ? `${se.yellow_limit} sarı = ceza` : 'sarı kuralı yok'}{se.red_ban ? ' · kırmızı = ceza' : ''}
+                  </div>}
+                  {se.format === 'groups_knockout' && <div className="muted" style={{ fontSize: 11 }}>
+                    {se.group_matches ? `takım başı ${se.group_matches} maç · ilk ${se.advance_count || 2} çıkar` : `tam lig · ilk ${se.advance_count || 2} çıkar`}
                   </div>}
                   {se.sport === 'basketball' && <div className="muted" style={{ fontSize: 11 }}>
                     {se.foul_limit ? `${se.foul_limit} faul = oyun dışı` : 'faul limiti yok'} · {se.period_count === 2 ? '2 devre' : '4 çeyrek'}

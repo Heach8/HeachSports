@@ -72,11 +72,13 @@ adminRouter.post('/seasons', ah(async (req, res) => {
   const pc = [2, 4].includes(Number(req.body.period_count)) ? Number(req.body.period_count) : null;
   const gc = format === 'groups_knockout' ? Math.max(2, Math.min(8, Number(req.body.group_count) || 2)) : null;
   const ac = format === 'groups_knockout' ? Math.max(1, Math.min(4, Number(req.body.advance_count) || 2)) : null;
+  const gm = format === 'groups_knockout' && Number(req.body.group_matches) >= 2
+    ? Math.min(10, Number(req.body.group_matches)) : null; // null = tam lig
   const tl = format !== 'league' && req.body.two_legged ? 1 : 0;
   const fee = Number(req.body.entry_fee) > 0 ? Number(req.body.entry_fee) : null;
   const id = await qInsert(
-    'INSERT INTO seasons (name, sport, court_size, yellow_limit, red_ban, foul_limit, period_count, two_legged, entry_fee, format, group_count, advance_count, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)',
-    [name, sport, cs, yl, rb, fl, pc, tl, fee, format, gc, ac]);
+    'INSERT INTO seasons (name, sport, court_size, yellow_limit, red_ban, foul_limit, period_count, two_legged, entry_fee, format, group_count, advance_count, group_matches, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)',
+    [name, sport, cs, yl, rb, fl, pc, tl, fee, format, gc, ac, gm]);
   res.json({ id });
 }));
 adminRouter.post('/seasons/:id/activate', ah(async (req, res) => {
@@ -201,22 +203,57 @@ adminRouter.post('/fixtures/generate', ah(async (req, res) => {
       for (const tid of groups[g]) {
         await qRun('UPDATE teams SET group_name = ? WHERE id = ?', [letters[g], tid]);
       }
-      // grup ici tek devreli lig
-      const ids = [...groups[g]];
-      if (ids.length % 2 === 1) ids.push(null);
-      const n = ids.length;
-      let roundNo = 1;
-      for (let r = 0; r < n - 1; r++) {
-        for (let i = 0; i < n / 2; i++) {
-          const a = ids[i], b = ids[n - 1 - i];
-          if (a !== null && b !== null) {
-            const [h, aw] = r % 2 === 0 ? [a, b] : [b, a];
-            await qRun("INSERT INTO matches (season_id, round, home_team_id, away_team_id, best_of, stage) VALUES (?, ?, ?, ?, ?, 'group')",
-              [season.id, roundNo, h, aw, bestOfKO]);
+      const K = season.group_matches;
+      if (K && K < groups[g].length - 1) {
+        // KURA USULU: her takim gruptan K farkli rakiple oynar (dengeli cember eslemesi).
+        // Kura sirasi cemberi belirler: manuel noter kurasinda cekilis sirasi aynen kullanilir.
+        const ring = [...groups[g]];
+        const n = ring.length;
+        if ((K * n) % 2 === 1) {
+          return res.status(400).json({ error: `${letters[g]} grubunda ${n} takimla takim basi ${K} mac kurulamaz (tek sayi carpimi). Takim veya mac sayisini degistirin.` });
+        }
+        const pairs = [];
+        for (let d = 1; d <= Math.floor(K / 2); d++) {
+          for (let i = 0; i < n; i++) {
+            const a = ring[i], b = ring[(i + d) % n];
+            pairs.push(i % 2 === 0 ? [a, b] : [b, a]);
           }
         }
-        roundNo++;
-        ids.splice(1, 0, ids.pop());
+        if (K % 2 === 1) {
+          const h = n / 2;
+          for (let i = 0; i < h; i++) pairs.push([ring[i], ring[i + h]]);
+        }
+        // Haftalara dagit: ayni takim ayni haftada iki mac oynamasin
+        const roundsArr = [];
+        for (const [a, b] of pairs) {
+          let r = 0;
+          while (roundsArr[r] && roundsArr[r].some(([x, y]) => x === a || y === a || x === b || y === b)) r++;
+          (roundsArr[r] = roundsArr[r] || []).push([a, b]);
+        }
+        for (let r = 0; r < roundsArr.length; r++) {
+          for (const [h, aw] of roundsArr[r]) {
+            await qRun("INSERT INTO matches (season_id, round, home_team_id, away_team_id, best_of, stage) VALUES (?, ?, ?, ?, ?, 'group')",
+              [season.id, r + 1, h, aw, bestOfKO]);
+          }
+        }
+      } else {
+        // TAM LIG: grup ici tek devreli round-robin
+        const ids = [...groups[g]];
+        if (ids.length % 2 === 1) ids.push(null);
+        const n = ids.length;
+        let roundNo = 1;
+        for (let r = 0; r < n - 1; r++) {
+          for (let i = 0; i < n / 2; i++) {
+            const a = ids[i], b = ids[n - 1 - i];
+            if (a !== null && b !== null) {
+              const [h, aw] = r % 2 === 0 ? [a, b] : [b, a];
+              await qRun("INSERT INTO matches (season_id, round, home_team_id, away_team_id, best_of, stage) VALUES (?, ?, ?, ?, ?, 'group')",
+                [season.id, roundNo, h, aw, bestOfKO]);
+            }
+          }
+          roundNo++;
+          ids.splice(1, 0, ids.pop());
+        }
       }
     }
     return res.json({ ok: true, format: 'groups_knockout', groups: gc });

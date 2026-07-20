@@ -82,10 +82,17 @@ export async function createKnockoutFromGroups(season, bestOf) {
     });
   }
   const nextRound = 100; // eleme turlari 100'den baslar (grup haftalariyla karismasin)
-  if (adv === 2 && qualifiersByRank.length === 2) {
-    // Capraz eslesme: A1-B2, B1-A2 ...
-    const firsts = qualifiersByRank[0], seconds = qualifiersByRank[1];
-    const pairs = firsts.map((t, i) => [t, seconds[(i + 1) % seconds.length]]);
+  if (groups.length === 2 && adv >= 1 && qualifiersByRank.length === adv && qualifiersByRank.every(r => r.length === 2)) {
+    // Klasik capraz: A1-B(son), A2-B(son-1)... ve B1-A(son)...
+    // qualifiersByRank[rank] = [Agrubu, Bgrubu]
+    const A = qualifiersByRank.map(r => r[0]);
+    const B = qualifiersByRank.map(r => r[1]);
+    const pairs = [];
+    for (let i = 0; i < adv; i++) {
+      // Eslesme sabit: A(i+1) vs B(adv-i). Ev sahipligi donusumlu.
+      const x = A[i], y = B[adv - 1 - i];
+      pairs.push(i % 2 === 0 ? [x, y] : [y, x]);
+    }
     await insertKnockoutMatches(season, pairs, nextRound, bestOf);
     await qRun('UPDATE seasons SET knockout_byes = NULL WHERE id = ?', [season.id]);
   } else {
