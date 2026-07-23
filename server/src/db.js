@@ -127,8 +127,17 @@ CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS organizations (
+  id ${PK},
+  name TEXT NOT NULL,
+  slug TEXT NOT NULL UNIQUE,
+  logo_path TEXT,
+  eligibility_required INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT ${NOW}
+);
 CREATE TABLE IF NOT EXISTS seasons (
   id ${PK},
+  organization_id INTEGER REFERENCES organizations(id),
   name TEXT NOT NULL,
   sport TEXT NOT NULL DEFAULT 'volleyball' CHECK (sport IN ('volleyball','beach_volleyball','football','basketball')),
   court_size INTEGER,
@@ -165,6 +174,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   name TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('super_admin','admin','scorekeeper','captain')),
+  organization_id INTEGER REFERENCES organizations(id),
   team_id INTEGER REFERENCES teams(id),
   must_change_password INTEGER NOT NULL DEFAULT 0
 );
@@ -269,6 +279,8 @@ export async function initSchema() {
     'ALTER TABLE seasons ADD COLUMN period_count INTEGER',
     'ALTER TABLE seasons ADD COLUMN two_legged INTEGER',
     'ALTER TABLE seasons ADD COLUMN group_matches INTEGER',
+    'ALTER TABLE seasons ADD COLUMN organization_id INTEGER REFERENCES organizations(id)',
+    'ALTER TABLE users ADD COLUMN organization_id INTEGER REFERENCES organizations(id)',
     'ALTER TABLE seasons ADD COLUMN entry_fee REAL',
     'ALTER TABLE teams ADD COLUMN billing_title TEXT',
     'ALTER TABLE teams ADD COLUMN tax_office TEXT',
@@ -283,6 +295,18 @@ export async function initSchema() {
     "ALTER TABLE matches ADD COLUMN stage TEXT NOT NULL DEFAULT 'league'"
   ]) {
     try { IS_PG ? await pool.query(stmt) : sqlite.exec(stmt); } catch {}
+  }
+  // Varsayilan organizasyon: sadece sahipsiz eski veri varsa olusturulur (mevcut kurulumlarin tasinmasi)
+  const orgCount = (await qGet('SELECT COUNT(*) AS c FROM organizations')).c;
+  const orphans = (await qGet('SELECT COUNT(*) AS c FROM seasons WHERE organization_id IS NULL')).c
+    + (await qGet("SELECT COUNT(*) AS c FROM users WHERE organization_id IS NULL AND role != 'super_admin'")).c;
+  if (orgCount === 0 && orphans > 0) {
+    await qRun("INSERT INTO organizations (name, slug) VALUES ('NCL', 'ncl')");
+  }
+  const def = await qGet('SELECT id FROM organizations ORDER BY id LIMIT 1');
+  if (def && orphans > 0) {
+    await qRun('UPDATE seasons SET organization_id = ? WHERE organization_id IS NULL', [def.id]);
+    await qRun("UPDATE users SET organization_id = ? WHERE organization_id IS NULL AND role != 'super_admin'", [def.id]);
   }
 }
 
@@ -332,6 +356,20 @@ export async function setSetting(key, value) {
   );
 }
 
-export async function getActiveSeason(sport = 'volleyball') {
-  return qGet('SELECT * FROM seasons WHERE is_active = 1 AND sport = ?', [sport]);
+export async function getActiveSeason(sport = 'volleyball', orgId = null) {
+  if (orgId) return qGet('SELECT * FROM seasons WHERE is_active = 1 AND sport = ? AND organization_id = ?', [sport, orgId]);
+  return qGet('SELECT * FROM seasons WHERE is_active = 1 AND sport = ? ORDER BY id LIMIT 1', [sport]);
+}
+
+// Istekten organizasyonu coz: public'te ?org=slug, girisli kullanicida kendi org'u
+export async function resolveOrg(req) {
+  const u = req.session?.user;
+  if (u && u.role !== 'super_admin' && u.organization_id) {
+    return qGet('SELECT * FROM organizations WHERE id = ?', [u.organization_id]);
+  }
+  if (req.query?.org) {
+    const o = await qGet('SELECT * FROM organizations WHERE slug = ?', [String(req.query.org)]);
+    if (o) return o;
+  }
+  return qGet('SELECT * FROM organizations ORDER BY id LIMIT 1');
 }

@@ -62,6 +62,11 @@ Notlar:
 - Yüklenen fotoğraflar yeniden deploy'da silinir (kalıcılık için ileride Supabase Storage'a taşınabilir).
 - `server/.env` ASLA GitHub'a yüklenmemelidir — bağlantı bilgisi Render panelindeki ortam değişkeninden verilir.
 
+## Çoklu Müşteri (Organizasyon) Mimarisi
+Platform artık **çok kiracılıdır**: her müşteri bir "organizasyon"dur ve sezonları, takımları, kullanıcıları, ayarları ve tahsilatı tamamen ayrıdır. Public sitede üst menüdeki organizasyon seçici ile müşteriler arasında geçilir (`?org=slug`). Organizasyon adminleri yalnızca kendi verilerini görür/yönetir; platform süper admini seçiciyle tüm müşterileri yönetir ve Yönetim > Organizasyonlar'dan yeni müşteri açar. Puan durumu ve fikstürde **sezon arşivi** seçicisi vardır: biten turnuvalar tablo/fikstür/şampiyonuyla görüntülenebilir.
+
+**Satış demosu:** Temiz kurulumda (basla.bat) iki örnek müşteri gelir — *Marmara Şirketler Ligi* (voleybol: 2025 arşiv sezonu bitmiş + 2026 sezonu canlı maçla devam ediyor) ve *Ege Kurumsal Turnuvaları* (futbol: kupa arşivi + devam eden lig, canlı maçlı). Girişler: platform `admin@ncl.com/admin123`, Marmara `marmara@ncl.com/admin123`, Ege `ege@ncl.com/admin123`.
+
 ## Roller
 - **Süper Admin:** Her şey + admin oluşturma
 - **Admin:** Onay kuyruğu, takım/kullanıcı/fikstür/ceza yönetimi, ayarlar

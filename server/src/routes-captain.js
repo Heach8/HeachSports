@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { qGet, qAll, qRun, qInsert, getSetting, validateNationalId, hashNationalId, maskNationalId } from './db.js';
+import { qGet, qAll, qRun, qInsert, validateNationalId, hashNationalId, maskNationalId } from './db.js';
 import { requireRole, ah } from './auth.js';
 import { upload } from './uploads.js';
 import { sportOf } from './sports.js';
@@ -21,12 +21,15 @@ async function ownPlayer(req, res) {
 captainRouter.get('/players', ah(async (req, res) => {
   const players = await qAll('SELECT * FROM players WHERE team_id = ? ORDER BY jersey_no', [req.session.user.team_id]);
   const row = await qGet(
-    'SELECT s.sport FROM teams t JOIN seasons s ON s.id = t.season_id WHERE t.id = ?',
+    `SELECT s.sport, o.eligibility_required FROM teams t
+     JOIN seasons s ON s.id = t.season_id
+     LEFT JOIN organizations o ON o.id = s.organization_id
+     WHERE t.id = ?`,
     [req.session.user.team_id]);
   const sport = row?.sport || 'volleyball';
   res.json({
     players: players.map(p => ({ ...p, pending_changes: p.pending_changes ? JSON.parse(p.pending_changes) : null })),
-    eligibility_required: (await getSetting('eligibility_check_enabled', '1')) === '1',
+    eligibility_required: (row?.eligibility_required ?? 1) === 1,
     sport, sport_label: sportOf(sport).label
   });
 }));
@@ -48,7 +51,11 @@ captainRouter.post('/players',
         AND t.season_id = (SELECT season_id FROM teams WHERE id = ?)
     `, [idHash, req.session.user.team_id]);
     if (dup) return res.status(400).json({ error: `Bu kimlik numarasi bu sezonda zaten kayitli (${dup.team_name})` });
-    const eligibilityRequired = (await getSetting('eligibility_check_enabled', '1')) === '1';
+    const eRow = await qGet(
+      `SELECT o.eligibility_required FROM teams t
+       JOIN seasons s ON s.id = t.season_id LEFT JOIN organizations o ON o.id = s.organization_id
+       WHERE t.id = ?`, [req.session.user.team_id]);
+    const eligibilityRequired = (eRow?.eligibility_required ?? 1) === 1;
     const doc = req.files?.eligibility_doc?.[0];
     if (eligibilityRequired && !doc) {
       return res.status(400).json({ error: 'Calisan belgesi zorunlu (uygunluk kontrolu acik)' });

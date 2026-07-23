@@ -22,13 +22,14 @@ export default function AdminPanel() {
   }
 
   const flash = (text, ok = true) => { setMsg({ text, ok }); setTimeout(() => setMsg(null), 4000); };
+  const tabs = user.role === 'super_admin' ? [...TABS, 'Organizasyonlar'] : TABS;
 
   return (
     <>
       <h1>Yönetim Paneli</h1>
       {msg && <div className={msg.ok ? 'success' : 'error'}>{msg.text}</div>}
       <div className="tabs">
-        {TABS.map(t => <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>{t}</button>)}
+        {tabs.map(t => <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>{t}</button>)}
       </div>
       {tab === 'Onaylar' && <Approvals flash={flash} />}
       {tab === 'Takımlar' && <TeamsTab flash={flash} />}
@@ -38,6 +39,7 @@ export default function AdminPanel() {
       {tab === 'Tahsilat' && <BillingTab flash={flash} />}
       {tab === 'Cezalar' && <PenaltiesTab flash={flash} />}
       {tab === 'Ayarlar' && <SettingsTab flash={flash} />}
+      {tab === 'Organizasyonlar' && <OrgsTab flash={flash} />}
     </>
   );
 }
@@ -774,6 +776,45 @@ function BillingTab({ flash }) {
           )}
         </>
       )}
+    </>
+  );
+}
+
+
+function OrgsTab({ flash }) {
+  const [orgs, setOrgs] = useState([]);
+  const [name, setName] = useState('');
+  const load = () => api('/admin/organizations').then(d => setOrgs(d.organizations));
+  useEffect(() => { load(); }, []);
+  const add = async (e) => {
+    e.preventDefault();
+    try { await api('/admin/organizations', { method: 'POST', body: { name } }); flash('Organizasyon (müşteri) oluşturuldu.'); setName(''); load(); }
+    catch (err) { flash(err.message, false); }
+  };
+  return (
+    <>
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>Yeni Organizasyon (Müşteri)</h2>
+        <form onSubmit={add} className="formrow">
+          <div><label>Organizasyon Adı *</label><input value={name} onChange={e => setName(e.target.value)} required placeholder="örn. Ankara Şirketler Ligi" /></div>
+          <div style={{ display: 'flex', alignItems: 'flex-end' }}><button className="btn primary">Oluştur</button></div>
+        </form>
+        <p className="muted" style={{ marginTop: 8 }}>Her müşterinin sezonları, takımları, kullanıcıları ve ayarları tamamen ayrıdır. Üstteki organizasyon seçici ile müşteriler arasında geçiş yapıp her birini ayrı yönetebilirsiniz.</p>
+      </div>
+      <div className="card">
+        <table>
+          <thead><tr><th>Organizasyon</th><th>Kısa Ad (URL)</th><th>Uygunluk Kontrolü</th></tr></thead>
+          <tbody>
+            {orgs.map(o => (
+              <tr key={o.id}>
+                <td><b>{o.name}</b></td>
+                <td className="muted">{o.slug}</td>
+                <td>{o.eligibility_required ? 'Açık' : 'Kapalı'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }

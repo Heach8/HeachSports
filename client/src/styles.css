@@ -328,3 +328,7 @@ body { overflow-x: hidden; }
   animation: bannerin .4s ease; }
 .sb-banner-assist { font-size: 16px; font-weight: 700; color: rgba(13,17,23,.75); }
 @keyframes bannerin { from { transform: translateY(-14px) scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* --- Organizasyon secici --- */
+.orgselect { width: auto; max-width: 220px; background: var(--bg3); border-color: var(--border);
+  font-size: 13px; font-weight: 600; padding: 6px 8px; margin-right: 6px; }

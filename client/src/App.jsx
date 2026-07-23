@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom';
-import { api } from './api.js';
+import { api, setOrgSlug, getOrgSlug } from './api.js';
 import Home from './pages/Home.jsx';
 import Standings from './pages/Standings.jsx';
 import Fixtures from './pages/Fixtures.jsx';
@@ -29,6 +29,7 @@ const SPORT_ICONS = { volleyball: '🏐', beach_volleyball: '🏖️', football:
 export default function App() {
   const [user, setUser] = useState(undefined);
   const [sports, setSports] = useState([]);
+  const [orgs, setOrgs] = useState([]);
   const [sport, setSportState] = useState(localStorage.getItem('ncl_sport') || 'volleyball');
   const navigate = useNavigate();
 
@@ -37,6 +38,10 @@ export default function App() {
   useEffect(() => {
     api('/auth/me').then(d => setUser(d.user)).catch(() => setUser(null));
     api('/sports').then(d => setSports(d.sports));
+    api('/orgs').then(d => {
+      setOrgs(d.orgs);
+      if (!getOrgSlug() && d.orgs.length) setOrgSlug(d.orgs[0].slug);
+    });
   }, []);
 
   const logout = async () => {
@@ -69,6 +74,12 @@ export default function App() {
                 <NavLink to="/" className="brand">
                   <img className="brandlogo" src={`/logos/ncl-${sport}.svg`} alt="NCL - National Corporate League" />
                 </NavLink>
+                {orgs.length > 1 && (
+                  <select className="orgselect" value={getOrgSlug()} title="Organizasyon"
+                    onChange={e => { setOrgSlug(e.target.value); window.location.reload(); }}>
+                    {orgs.map(o => <option key={o.slug} value={o.slug}>{o.name}</option>)}
+                  </select>
+                )}
                 <div className="sportpills">
                   {sports.map(s => (
                     <button key={s.key} className={sport === s.key ? 'active' : ''} onClick={() => setSport(s.key)}>

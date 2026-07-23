@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { qGet, qAll, qRun, qInsert, hashPassword, getSetting, setSetting, getActiveSeason } from './db.js';
+import { qGet, qAll, qRun, qInsert, hashPassword, getActiveSeason, resolveOrg } from './db.js';
 import { requireRole, ah } from './auth.js';
 import { upload } from './uploads.js';
 import { SPORT_KEYS, sportOf } from './sports.js';
@@ -10,11 +10,14 @@ adminRouter.use(requireRole('admin'));
 
 // --- Onay kuyrugu ---
 adminRouter.get('/approvals', ah(async (req, res) => {
+  const org = await resolveOrg(req);
   const rows = await qAll(`
-    SELECT p.*, t.name AS team_name FROM players p JOIN teams t ON t.id = p.team_id
-    WHERE p.status = 'pending' OR p.pending_changes IS NOT NULL
+    SELECT p.*, t.name AS team_name FROM players p
+    JOIN teams t ON t.id = p.team_id
+    JOIN seasons s ON s.id = t.season_id
+    WHERE (p.status = 'pending' OR p.pending_changes IS NOT NULL) AND s.organization_id = ?
     ORDER BY p.created_at
-  `);
+  `, [org.id]);
   res.json({ approvals: rows.map(p => ({ ...p, pending_changes: p.pending_changes ? JSON.parse(p.pending_changes) : null })) });
 }));
 
@@ -55,7 +58,8 @@ adminRouter.post('/approvals/:id/reject', ah(async (req, res) => {
 
 // --- Sezonlar ---
 adminRouter.get('/seasons', ah(async (req, res) => {
-  res.json({ seasons: await qAll('SELECT * FROM seasons ORDER BY id DESC') });
+  const org = await resolveOrg(req);
+  res.json({ seasons: await qAll('SELECT * FROM seasons WHERE organization_id = ? ORDER BY id DESC', [org.id]) });
 }));
 adminRouter.post('/seasons', ah(async (req, res) => {
   const { name, sport, court_size } = req.body;
@@ -76,15 +80,16 @@ adminRouter.post('/seasons', ah(async (req, res) => {
     ? Math.min(10, Number(req.body.group_matches)) : null; // null = tam lig
   const tl = format !== 'league' && req.body.two_legged ? 1 : 0;
   const fee = Number(req.body.entry_fee) > 0 ? Number(req.body.entry_fee) : null;
+  const org = await resolveOrg(req);
   const id = await qInsert(
-    'INSERT INTO seasons (name, sport, court_size, yellow_limit, red_ban, foul_limit, period_count, two_legged, entry_fee, format, group_count, advance_count, group_matches, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)',
-    [name, sport, cs, yl, rb, fl, pc, tl, fee, format, gc, ac, gm]);
+    'INSERT INTO seasons (organization_id, name, sport, court_size, yellow_limit, red_ban, foul_limit, period_count, two_legged, entry_fee, format, group_count, advance_count, group_matches, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)',
+    [org.id, name, sport, cs, yl, rb, fl, pc, tl, fee, format, gc, ac, gm]);
   res.json({ id });
 }));
 adminRouter.post('/seasons/:id/activate', ah(async (req, res) => {
   const season = await qGet('SELECT * FROM seasons WHERE id = ?', [req.params.id]);
   if (!season) return res.status(404).json({ error: 'Sezon bulunamadi' });
-  await qRun('UPDATE seasons SET is_active = 0 WHERE sport = ?', [season.sport]);
+  await qRun('UPDATE seasons SET is_active = 0 WHERE sport = ? AND organization_id = ?', [season.sport, season.organization_id]);
   await qRun('UPDATE seasons SET is_active = 1 WHERE id = ?', [req.params.id]);
   res.json({ ok: true });
 }));
@@ -92,7 +97,8 @@ adminRouter.post('/seasons/:id/activate', ah(async (req, res) => {
 // --- Takimlar ---
 adminRouter.post('/teams', upload.fields([{ name: 'logo', maxCount: 1 }]), ah(async (req, res) => {
   const { name, company, season_id, sport } = req.body;
-  const sid = season_id || (await getActiveSeason(sport || 'volleyball'))?.id;
+  const org = await resolveOrg(req);
+  const sid = season_id || (await getActiveSeason(sport || 'volleyball', org.id))?.id;
   if (!name || !sid) return res.status(400).json({ error: 'Takim adi ve sezon gerekli' });
   const logo = req.files?.logo?.[0];
   const id = await qInsert('INSERT INTO teams (season_id, name, company, logo_path) VALUES (?, ?, ?, ?)',
@@ -110,18 +116,22 @@ adminRouter.delete('/teams/:id', ah(async (req, res) => {
 }));
 
 adminRouter.get('/teams-all', ah(async (req, res) => {
+  const org = await resolveOrg(req);
   res.json({ teams: await qAll(`
     SELECT t.id, t.name, s.sport, s.name AS season_name
-    FROM teams t JOIN seasons s ON s.id = t.season_id ORDER BY s.sport, t.name
-  `) });
+    FROM teams t JOIN seasons s ON s.id = t.season_id
+    WHERE s.organization_id = ? ORDER BY s.sport, t.name
+  `, [org.id]) });
 }));
 
 // --- Kullanicilar ---
 adminRouter.get('/users', ah(async (req, res) => {
+  const org = await resolveOrg(req);
   res.json({ users: await qAll(`
     SELECT u.id, u.email, u.name, u.role, u.team_id, t.name AS team_name
-    FROM users u LEFT JOIN teams t ON t.id = u.team_id ORDER BY u.role, u.name
-  `) });
+    FROM users u LEFT JOIN teams t ON t.id = u.team_id
+    WHERE u.organization_id = ? OR u.role = 'super_admin' ORDER BY u.role, u.name
+  `, [org.id]) });
 }));
 adminRouter.post('/users', ah(async (req, res) => {
   const { email, password, name, role, team_id } = req.body;
@@ -131,9 +141,10 @@ adminRouter.post('/users', ah(async (req, res) => {
   }
   if (role === 'captain' && !team_id) return res.status(400).json({ error: 'Kaptan icin takim secilmeli' });
   try {
+    const org = await resolveOrg(req);
     const id = await qInsert(
-      'INSERT INTO users (email, password_hash, name, role, team_id, must_change_password) VALUES (?, ?, ?, ?, ?, 1)',
-      [String(email).toLowerCase().trim(), hashPassword(password), name, role, role === 'captain' ? team_id : null]);
+      'INSERT INTO users (email, password_hash, name, role, organization_id, team_id, must_change_password) VALUES (?, ?, ?, ?, ?, ?, 1)',
+      [String(email).toLowerCase().trim(), hashPassword(password), name, role, role === 'super_admin' ? null : org.id, role === 'captain' ? team_id : null]);
     res.json({ id, must_change_password: true });
   } catch {
     res.status(400).json({ error: 'Bu e-posta zaten kayitli' });
@@ -147,7 +158,8 @@ adminRouter.delete('/users/:id', ah(async (req, res) => {
 
 // --- Fikstur ---
 adminRouter.post('/fixtures/generate', ah(async (req, res) => {
-  const season = await getActiveSeason(SPORT_KEYS.includes(req.body.sport) ? req.body.sport : 'volleyball');
+  const org = await resolveOrg(req);
+  const season = await getActiveSeason(SPORT_KEYS.includes(req.body.sport) ? req.body.sport : 'volleyball', org.id);
   if (!season) return res.status(400).json({ error: 'Aktif sezon yok' });
   const existing = (await qGet(
     "SELECT COUNT(*) AS c FROM matches WHERE season_id = ? AND status != 'scheduled'", [season.id])).c;
@@ -302,11 +314,13 @@ adminRouter.put('/matches/:id', ah(async (req, res) => {
 
 // --- Cezalar ---
 adminRouter.get('/penalties', ah(async (req, res) => {
+  const org = await resolveOrg(req);
   res.json({ penalties: await qAll(`
     SELECT pe.*, p.first_name, p.last_name, t.name AS team_name
     FROM penalties pe JOIN players p ON p.id = pe.player_id JOIN teams t ON t.id = p.team_id
+    JOIN seasons s ON s.id = t.season_id WHERE s.organization_id = ?
     ORDER BY pe.created_at DESC
-  `) });
+  `, [org.id]) });
 }));
 adminRouter.post('/penalties', ah(async (req, res) => {
   const { player_id, match_id, type, ban_matches, note } = req.body;
@@ -322,7 +336,8 @@ adminRouter.delete('/penalties/:id', ah(async (req, res) => {
 
 // --- Tahsilat / Fatura ---
 adminRouter.get('/billing', ah(async (req, res) => {
-  const season = await getActiveSeason(SPORT_KEYS.includes(req.query.sport) ? req.query.sport : 'volleyball');
+  const org = await resolveOrg(req);
+  const season = await getActiveSeason(SPORT_KEYS.includes(req.query.sport) ? req.query.sport : 'volleyball', org.id);
   if (!season) return res.json({ season: null, teams: [] });
   const teams = await qAll(`
     SELECT t.id, t.name, t.company, t.billing_title, t.tax_office, t.tax_number, t.billing_address, t.billing_email,
@@ -368,17 +383,43 @@ adminRouter.delete('/payments/:id', ah(async (req, res) => {
 
 // --- Ayarlar ---
 adminRouter.get('/settings', ah(async (req, res) => {
-  res.json({ eligibility_check_enabled: (await getSetting('eligibility_check_enabled', '1')) === '1' });
+  const org = await resolveOrg(req);
+  res.json({ eligibility_check_enabled: org.eligibility_required === 1 });
 }));
 adminRouter.put('/settings', ah(async (req, res) => {
+  const org = await resolveOrg(req);
   if (req.body.eligibility_check_enabled !== undefined) {
-    await setSetting('eligibility_check_enabled', req.body.eligibility_check_enabled ? '1' : '0');
+    await qRun('UPDATE organizations SET eligibility_required = ? WHERE id = ?',
+      [req.body.eligibility_check_enabled ? 1 : 0, org.id]);
   }
   res.json({ ok: true });
 }));
 
+// --- Organizasyonlar (sadece super admin) ---
+adminRouter.get('/organizations', ah(async (req, res) => {
+  if (req.session.user.role !== 'super_admin') return res.status(403).json({ error: 'Yetkisiz' });
+  res.json({ organizations: await qAll('SELECT * FROM organizations ORDER BY id') });
+}));
+adminRouter.post('/organizations', ah(async (req, res) => {
+  if (req.session.user.role !== 'super_admin') return res.status(403).json({ error: 'Yetkisiz' });
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'Organizasyon adi gerekli' });
+  const slug = (req.body.slug || name).toLowerCase()
+    .replaceAll('ı','i').replaceAll('ğ','g').replaceAll('ü','u').replaceAll('ş','s').replaceAll('ö','o').replaceAll('ç','c')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  try {
+    const id = await qInsert('INSERT INTO organizations (name, slug) VALUES (?, ?)', [name, slug]);
+    res.json({ id, slug });
+  } catch {
+    res.status(400).json({ error: 'Bu kisa ad (slug) zaten kullanimda' });
+  }
+}));
+
 adminRouter.get('/players', ah(async (req, res) => {
+  const org = await resolveOrg(req);
   res.json({ players: await qAll(`
-    SELECT p.*, t.name AS team_name FROM players p JOIN teams t ON t.id = p.team_id ORDER BY t.name, p.jersey_no
-  `) });
+    SELECT p.*, t.name AS team_name FROM players p JOIN teams t ON t.id = p.team_id
+    JOIN seasons s ON s.id = t.season_id WHERE s.organization_id = ?
+    ORDER BY t.name, p.jersey_no
+  `, [org.id]) });
 }));

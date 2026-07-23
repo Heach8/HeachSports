@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { qGet, qAll, getActiveSeason } from './db.js';
+import { qGet, qAll, getActiveSeason, resolveOrg } from './db.js';
 import { ah } from './auth.js';
 import { computeStandings } from './standings.js';
 import { SPORTS, SPORT_KEYS, sportOf, sportConfigForClient, isSetBased } from './sports.js';
@@ -8,6 +8,16 @@ import { knockoutLabel } from './tournament.js';
 export const publicRouter = Router();
 
 const reqSport = (req) => (SPORT_KEYS.includes(req.query.sport) ? req.query.sport : 'volleyball');
+
+// Sezon secimi: ?season_id verilirse (arsiv) o sezon, yoksa org'un aktif sezonu
+async function pickSeason(req) {
+  const org = await resolveOrg(req);
+  if (req.query.season_id) {
+    const s = await qGet('SELECT * FROM seasons WHERE id = ? AND organization_id = ?', [Number(req.query.season_id), org?.id]);
+    if (s) return s;
+  }
+  return getActiveSeason(reqSport(req), org?.id);
+}
 
 async function matchWithNames(m) {
   const h = await qGet('SELECT name, logo_path FROM teams WHERE id = ?', [m.home_team_id]) || {};
@@ -73,21 +83,35 @@ async function decorateAll(matches) {
   return out;
 }
 
+publicRouter.get('/orgs', ah(async (req, res) => {
+  res.json({ orgs: await qAll('SELECT id, name, slug, logo_path FROM organizations ORDER BY id') });
+}));
+
 publicRouter.get('/sports', ah(async (req, res) => {
+  const org = await resolveOrg(req);
   const list = [];
   for (const k of SPORT_KEYS) {
-    list.push({ key: k, label: SPORTS[k].label, has_season: !!(await getActiveSeason(k)) });
+    list.push({ key: k, label: SPORTS[k].label, has_season: !!(await getActiveSeason(k, org?.id)) });
   }
-  res.json({ sports: list });
+  res.json({ sports: list, org: org ? { name: org.name, slug: org.slug } : null });
+}));
+
+// Arsiv: bu brans + org'un tum sezonlari
+publicRouter.get('/seasons-list', ah(async (req, res) => {
+  const org = await resolveOrg(req);
+  res.json({ seasons: await qAll(
+    'SELECT id, name, is_active, format FROM seasons WHERE sport = ? AND organization_id = ? ORDER BY id DESC',
+    [reqSport(req), org?.id]) });
 }));
 
 publicRouter.get('/season', ah(async (req, res) => {
   const sport = reqSport(req);
-  res.json({ season: await getActiveSeason(sport), sport: sportConfigForClient(sport) });
+  const org = await resolveOrg(req);
+  res.json({ season: await getActiveSeason(sport, org?.id), sport: sportConfigForClient(sport) });
 }));
 
 publicRouter.get('/standings', ah(async (req, res) => {
-  const season = await getActiveSeason(reqSport(req));
+  const season = await pickSeason(req);
   if (!season) return res.json({ standings: [], sport: reqSport(req), format: 'league' });
   const format = season.format || 'league';
   const out = { sport: season.sport, format, standings: [], groups: [], knockout: [] };
@@ -115,7 +139,7 @@ publicRouter.get('/standings', ah(async (req, res) => {
 }));
 
 publicRouter.get('/fixtures', ah(async (req, res) => {
-  const season = await getActiveSeason(reqSport(req));
+  const season = await pickSeason(req);
   if (!season) return res.json({ matches: [] });
   let matches = await qAll('SELECT * FROM matches WHERE season_id = ? ORDER BY round, scheduled_at, id', [season.id]);
   matches = await stageLabels(season.id, matches);
@@ -123,8 +147,9 @@ publicRouter.get('/fixtures', ah(async (req, res) => {
 }));
 
 publicRouter.get('/live-matches', ah(async (req, res) => {
+  const org = await resolveOrg(req);
   const matches = await qAll(
-    "SELECT m.*, s.sport FROM matches m JOIN seasons s ON s.id = m.season_id WHERE m.status = 'live'");
+    "SELECT m.*, s.sport FROM matches m JOIN seasons s ON s.id = m.season_id WHERE m.status = 'live' AND s.organization_id = ?", [org?.id]);
   const out = [];
   for (const m of matches) {
     out.push({ ...(await matchWithNames(m)), sport_label: sportOf(m.sport).label });
@@ -133,7 +158,7 @@ publicRouter.get('/live-matches', ah(async (req, res) => {
 }));
 
 publicRouter.get('/teams', ah(async (req, res) => {
-  const season = await getActiveSeason(reqSport(req));
+  const season = await pickSeason(req);
   if (!season) return res.json({ teams: [] });
   const teams = await qAll(`
     SELECT t.*, (SELECT COUNT(*) FROM players p WHERE p.team_id = t.id AND p.status = 'approved') AS player_count
@@ -201,7 +226,7 @@ publicRouter.get('/players/:id', ah(async (req, res) => {
 
 publicRouter.get('/leaders', ah(async (req, res) => {
   const sportKey = reqSport(req);
-  const season = await getActiveSeason(sportKey);
+  const season = await pickSeason(req);
   const sport = sportOf(sportKey);
   const titles = sport.leaders.map(l => ({ key: l.key, label: l.label, suffix: l.ratio ? '%' : '' }));
   if (!season) return res.json({ leaders: {}, titles });

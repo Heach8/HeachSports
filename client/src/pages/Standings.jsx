@@ -46,14 +46,26 @@ function StandingsTable({ rows, sport }) {
 export default function Standings() {
   const { sport } = useSport();
   const [data, setData] = useState(null);
-  useEffect(() => { api(`/standings?sport=${sport}`).then(setData); }, [sport]);
+  const [seasons, setSeasons] = useState([]);
+  const [seasonId, setSeasonId] = useState('');
+  useEffect(() => { api(`/seasons-list?sport=${sport}`).then(d => { setSeasons(d.seasons); setSeasonId(''); }); }, [sport]);
+  useEffect(() => {
+    api(`/standings?sport=${sport}${seasonId ? `&season_id=${seasonId}` : ''}`).then(setData);
+  }, [sport, seasonId]);
   if (!data) return null;
   const fmt = data.format || 'league';
   const vb = ['volleyball', 'beach_volleyball'].includes(sport);
   const fb = sport === 'football';
   return (
     <>
-      <h1>{fmt === 'knockout' ? 'Eleme Tablosu' : 'Puan Durumu'}</h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <h1 style={{ marginBottom: 16 }}>{fmt === 'knockout' ? 'Eleme Tablosu' : 'Puan Durumu'}</h1>
+        {seasons.length > 1 && (
+          <select style={{ width: 'auto', marginBottom: 16 }} value={seasonId} onChange={e => setSeasonId(e.target.value)}>
+            {seasons.map(s => <option key={s.id} value={s.is_active ? '' : s.id}>{s.name}{s.is_active ? ' (Aktif)' : ' (Arşiv)'}</option>)}
+          </select>
+        )}
+      </div>
 
       {fmt === 'league' && (
         <div className="card"><StandingsTable rows={data.standings || []} sport={sport} /></div>

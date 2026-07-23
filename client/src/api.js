@@ -1,4 +1,11 @@
+let currentOrg = localStorage.getItem('ncl_org') || '';
+export const setOrgSlug = (s) => { currentOrg = s; localStorage.setItem('ncl_org', s); };
+export const getOrgSlug = () => currentOrg;
+
 export async function api(path, opts = {}) {
+  if (currentOrg) {
+    path += (path.includes('?') ? '&' : '?') + 'org=' + encodeURIComponent(currentOrg);
+  }
   const isForm = opts.body instanceof FormData;
   const res = await fetch('/api' + path, {
     credentials: 'include',

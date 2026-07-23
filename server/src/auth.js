@@ -29,6 +29,7 @@ authRouter.post('/login', ah(async (req, res) => {
   }
   req.session.user = {
     id: user.id, email: user.email, name: user.name, role: user.role,
+    organization_id: user.organization_id || null,
     team_id: user.team_id, must_change_password: user.must_change_password === 1
   };
   res.json({ user: req.session.user });
