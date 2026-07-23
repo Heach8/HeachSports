@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api, subscribeLive } from '../api.js';
+import { api, subscribeLive, getOrgSlug, setOrgSlug } from '../api.js';
 import { useSport } from '../App.jsx';
 
 export function TeamBadge({ name, logo, right = false }) {
@@ -40,6 +40,7 @@ export default function Home() {
   const [seasons, setSeasons] = useState([]);
   const [seasonId, setSeasonId] = useState('');
   const [orgInfo, setOrgInfo] = useState(null);
+  const [orgs, setOrgs] = useState([]);
   const q = seasonId ? `&season_id=${seasonId}` : '';
 
   const load = () => {
@@ -51,6 +52,7 @@ export default function Home() {
   };
 
   useEffect(() => { api(`/seasons-list?sport=${sport}`).then(d => setSeasons(d.seasons)); setSeasonId(''); }, [sport]);
+  useEffect(() => { api('/orgs').then(d => setOrgs(d.orgs)); }, []);
   useEffect(() => {
     load();
     return subscribeLive(null, load);
@@ -88,6 +90,22 @@ export default function Home() {
           </select>
         )}
       </div>
+
+      {orgs.length > 1 && (
+        <div className="orgbar">
+          <span className="orgbar-label">Lig / Organizasyon</span>
+          <div className="orgbar-chips">
+            {orgs.map(o => (
+              <button key={o.slug}
+                className={`orgchip ${getOrgSlug() === o.slug ? 'active' : ''}`}
+                onClick={() => { setOrgSlug(o.slug); window.location.reload(); }}>
+                {o.logo_path && <img src={o.logo_path} alt="" />}
+                {o.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {!isArchiveView && live.length > 0 && (
         <div className="card live-card">
           <h2 style={{ marginTop: 0 }}>🔴 Şu An Sahada</h2>

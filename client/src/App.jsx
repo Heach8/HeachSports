@@ -104,21 +104,6 @@ export default function App() {
                 )}
               </nav>
               <div className="container">
-                {orgs.length > 1 && (
-                  <div className="orgbar">
-                    <span className="orgbar-label">Lig / Organizasyon</span>
-                    <div className="orgbar-chips">
-                      {orgs.map(o => (
-                        <button key={o.slug}
-                          className={`orgchip ${getOrgSlug() === o.slug ? 'active' : ''}`}
-                          onClick={() => { setOrgSlug(o.slug); window.location.reload(); }}>
-                          {o.logo_path && <img src={o.logo_path} alt="" />}
-                          {o.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
                 <Routes>
                   <Route path="/lig" element={<Home />} />
                   <Route path="/puan-durumu" element={<Standings />} />
