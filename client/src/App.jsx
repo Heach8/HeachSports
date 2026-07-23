@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Routes, Route, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { api, setOrgSlug, getOrgSlug } from './api.js';
+import FancySelect from './components/FancySelect.jsx';
 import Home from './pages/Home.jsx';
 import Standings from './pages/Standings.jsx';
 import Fixtures from './pages/Fixtures.jsx';
@@ -36,16 +37,11 @@ function OrgBar({ orgs }) {
   return (
     <div className="orgbar">
       <span className="orgbar-label">Lig / Organizasyon</span>
-      <div className="orgbar-chips">
-        {orgs.map(o => (
-          <button key={o.slug}
-            className={`orgchip ${getOrgSlug() === o.slug ? 'active' : ''}`}
-            onClick={() => { setOrgSlug(o.slug); window.location.assign('/lig'); }}>
-            {o.logo_path && <img src={o.logo_path} alt="" />}
-            {o.name}
-          </button>
-        ))}
-      </div>
+      <FancySelect size="lg" icon="🏆"
+        value={getOrgSlug()}
+        options={orgs.map(o => ({ value: o.slug, label: o.name, logo: o.logo_path }))}
+        onChange={(slug) => { setOrgSlug(slug); window.location.assign('/lig'); }}
+      />
     </div>
   );
 }

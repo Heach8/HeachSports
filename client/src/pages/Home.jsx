@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, subscribeLive } from '../api.js';
+import FancySelect from '../components/FancySelect.jsx';
 import { useSport } from '../App.jsx';
 
 export function TeamBadge({ name, logo, right = false }) {
@@ -83,9 +84,11 @@ export default function Home() {
           <p className="muted">{orgInfo?.name}{season ? ' · canlı skorlar · istatistikler' : ''}</p>
         </div>
         {seasons.length > 1 && (
-          <select className="hero-seasonsel" value={seasonId} onChange={e => setSeasonId(e.target.value)}>
-            {seasons.map(s => <option key={s.id} value={s.is_active ? '' : s.id}>{s.name}{s.is_active ? ' (Aktif)' : ' (Arşiv)'}</option>)}
-          </select>
+          <FancySelect size="md" icon="📅"
+            value={seasonId}
+            options={seasons.map(s => ({ value: s.is_active ? '' : String(s.id), label: s.name, hint: s.is_active ? 'Aktif' : 'Arşiv' }))}
+            onChange={setSeasonId}
+          />
         )}
       </div>
 

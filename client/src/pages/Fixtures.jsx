@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api.js';
+import FancySelect from '../components/FancySelect.jsx';
 import { useSport } from '../App.jsx';
 import { MatchRow } from './Home.jsx';
 
@@ -16,9 +17,13 @@ export default function Fixtures() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <h1 style={{ marginBottom: 16 }}>Fikstür</h1>
         {seasons.length > 1 && (
-          <select style={{ width: 'auto', marginBottom: 16 }} value={seasonId} onChange={e => setSeasonId(e.target.value)}>
-            {seasons.map(s => <option key={s.id} value={s.is_active ? '' : s.id}>{s.name}{s.is_active ? ' (Aktif)' : ' (Arşiv)'}</option>)}
-          </select>
+          <div style={{ marginBottom: 16 }}>
+            <FancySelect size="md" icon="📅"
+              value={seasonId}
+              options={seasons.map(s => ({ value: s.is_active ? '' : String(s.id), label: s.name, hint: s.is_active ? 'Aktif' : 'Arşiv' }))}
+              onChange={setSeasonId}
+            />
+          </div>
         )}
       </div>
       {labels.length === 0 && <p className="muted">Bu branşta fikstür henüz oluşturulmadı.</p>}
