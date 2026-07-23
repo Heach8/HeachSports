@@ -332,3 +332,24 @@ body { overflow-x: hidden; }
 /* --- Organizasyon secici --- */
 .orgselect { width: auto; max-width: 220px; background: var(--bg3); border-color: var(--border);
   font-size: 13px; font-weight: 600; padding: 6px 8px; margin-right: 6px; }
+
+/* --- Tanitim sayfasi + kayit --- */
+.landing { max-width: 1050px; margin: 0 auto; padding: 40px 16px; text-align: center; }
+.landing-hero { padding: 40px 10px 30px; }
+.landing-logo { height: 84px; animation: float 4s ease-in-out infinite; }
+.landing h1 { font-size: clamp(26px, 4.5vw, 44px); margin: 18px 0 10px;
+  background: linear-gradient(90deg, #fff, #fbbf24); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.landing-sub { color: var(--muted); font-size: clamp(14px, 2vw, 18px); max-width: 640px; margin: 0 auto 22px; line-height: 1.6; }
+.landing-cta { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.landing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 30px; text-align: left; }
+.landing-card h3 { margin: 8px 0 6px; }
+.landing-icon { font-size: 30px; }
+.landing-foot { margin-top: 34px; font-size: 13px; }
+
+.notice { padding: 12px 14px; border-radius: 8px; font-size: 13.5px; line-height: 1.55; margin: 10px 0; }
+.notice.info { background: #10233d; border: 1px solid rgba(56,139,253,.4); color: #b6d3f5; }
+.notice.warn { background: #3b2b0a; border: 1px solid rgba(245,158,11,.45); color: #fbd38d; }
+
+.orgbadge { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700;
+  background: var(--bg3); border: 1px solid var(--border); padding: 5px 11px; border-radius: 999px; margin-right: 4px; }
+.orgbadge img { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; }

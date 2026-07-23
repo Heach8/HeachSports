@@ -451,13 +451,53 @@ function PenaltiesTab({ flash }) {
 
 function SettingsTab({ flash }) {
   const [eligibility, setEligibility] = useState(true);
-  useEffect(() => { api('/admin/settings').then(d => setEligibility(d.eligibility_check_enabled)); }, []);
+  const [org, setOrg] = useState(null);
+  const [logo, setLogo] = useState(null);
+  useEffect(() => {
+    api('/admin/settings').then(d => setEligibility(d.eligibility_check_enabled));
+    api('/admin/organization').then(d => setOrg(d.organization));
+  }, []);
   const save = async (value) => {
     setEligibility(value);
     await api('/admin/settings', { method: 'PUT', body: { eligibility_check_enabled: value } });
     flash('Ayar kaydedildi.');
   };
   return (
+    <>
+    {org && (
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>Organizasyon Profili</h2>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 12 }}>
+          {org.logo_path
+            ? <img src={org.logo_path} alt="" style={{ width: 64, height: 64, borderRadius: 12, objectFit: 'cover', background: '#fff' }} />
+            : <span className="avatar lg">{org.name?.[0]}</span>}
+          <div>
+            <b>{org.name}</b>
+            <div className="muted" style={{ fontSize: 12 }}>Logonuz sitenin üst menüsünde ve sayfalarınızda görünür.</div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 6, alignItems: 'center' }}>
+              <input type="file" accept="image/*" style={{ width: 'auto' }} onChange={e => setLogo(e.target.files[0])} />
+              <button className="btn sm primary" disabled={!logo} onClick={async () => {
+                const fd = new FormData(); fd.append('logo', logo);
+                try { await api('/admin/organization/logo', { method: 'POST', body: fd }); flash('Logo güncellendi — sayfa yenileniyor.'); setTimeout(() => window.location.reload(), 800); }
+                catch (e2) { flash(e2.message, false); }
+              }}>Logoyu Yükle</button>
+            </div>
+          </div>
+        </div>
+        <div className="formrow">
+          <div><label>Organizasyon Adı</label><input value={org.name || ''} onChange={e => setOrg({ ...org, name: e.target.value })} /></div>
+          <div><label>Yetkili Ad Soyad</label><input value={org.contact_name || ''} onChange={e => setOrg({ ...org, contact_name: e.target.value })} /></div>
+          <div><label>{org.account_type === 'company' ? 'VKN' : 'TCKN/VKN'}</label><input value={org.tax_id || ''} onChange={e => setOrg({ ...org, tax_id: e.target.value })} /></div>
+        </div>
+        <label>Fatura Adresi</label>
+        <input value={org.address || ''} onChange={e => setOrg({ ...org, address: e.target.value })} />
+        <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>⚠️ Sezon ücreti faturalarınız bu bilgilere kesilir; hatasız olduğundan emin olun.</p>
+        <button className="btn primary" style={{ marginTop: 10 }} onClick={async () => {
+          try { await api('/admin/organization', { method: 'PUT', body: org }); flash('Organizasyon bilgileri kaydedildi.'); }
+          catch (e2) { flash(e2.message, false); }
+        }}>Bilgileri Kaydet</button>
+      </div>
+    )}
     <div className="card">
       <h2 style={{ marginTop: 0 }}>Genel Ayarlar</h2>
       <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
@@ -468,6 +508,7 @@ function SettingsTab({ flash }) {
         Açıkken kaptanlar yeni oyuncu eklerken şirket çalışanı olduğunu gösteren belge yüklemek zorundadır.
       </p>
     </div>
+    </>
   );
 }
 

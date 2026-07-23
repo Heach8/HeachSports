@@ -33,6 +33,9 @@ export default function Login() {
         <input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
         <button className="btn primary" style={{ marginTop: 16, width: '100%' }}>Giriş Yap</button>
       </form>
+      <p className="muted" style={{ marginTop: 12, textAlign: 'center' }}>
+        Turnuva mı düzenliyorsunuz? <a href="/kayit" style={{ color: 'var(--accent)' }}>Ücretsiz hesap oluşturun</a>
+      </p>
     </div>
   );
 }

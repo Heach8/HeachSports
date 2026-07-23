@@ -132,6 +132,10 @@ CREATE TABLE IF NOT EXISTS organizations (
   name TEXT NOT NULL,
   slug TEXT NOT NULL UNIQUE,
   logo_path TEXT,
+  account_type TEXT,
+  tax_id TEXT,
+  contact_name TEXT,
+  address TEXT,
   eligibility_required INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL DEFAULT ${NOW}
 );
@@ -299,6 +303,10 @@ export async function initSchema() {
     'ALTER TABLE seasons ADD COLUMN payment_method TEXT',
     'ALTER TABLE seasons ADD COLUMN team_quota INTEGER',
     'ALTER TABLE seasons ADD COLUMN platform_fee REAL',
+    'ALTER TABLE organizations ADD COLUMN account_type TEXT',
+    'ALTER TABLE organizations ADD COLUMN tax_id TEXT',
+    'ALTER TABLE organizations ADD COLUMN contact_name TEXT',
+    'ALTER TABLE organizations ADD COLUMN address TEXT',
     'ALTER TABLE seasons ADD COLUMN entry_fee REAL',
     'ALTER TABLE teams ADD COLUMN billing_title TEXT',
     'ALTER TABLE teams ADD COLUMN tax_office TEXT',

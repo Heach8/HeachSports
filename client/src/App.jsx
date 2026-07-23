@@ -12,6 +12,8 @@ import MatchDetail from './pages/MatchDetail.jsx';
 import Scoreboard from './pages/Scoreboard.jsx';
 import Overlay from './pages/Overlay.jsx';
 import Login from './pages/Login.jsx';
+import Landing from './pages/Landing.jsx';
+import Register from './pages/Register.jsx';
 import ChangePassword from './pages/ChangePassword.jsx';
 import CaptainPanel from './pages/CaptainPanel.jsx';
 import AdminPanel from './pages/AdminPanel.jsx';
@@ -30,6 +32,7 @@ export default function App() {
   const [user, setUser] = useState(undefined);
   const [sports, setSports] = useState([]);
   const [orgs, setOrgs] = useState([]);
+  const [orgInfo, setOrgInfo] = useState(null);
   const [sport, setSportState] = useState(localStorage.getItem('ncl_sport') || 'volleyball');
   const navigate = useNavigate();
 
@@ -37,7 +40,7 @@ export default function App() {
 
   useEffect(() => {
     api('/auth/me').then(d => setUser(d.user)).catch(() => setUser(null));
-    api('/sports').then(d => setSports(d.sports));
+    api('/sports').then(d => { setSports(d.sports); setOrgInfo(d.org); });
     api('/orgs').then(d => {
       setOrgs(d.orgs);
       if (!getOrgSlug() && d.orgs.length) setOrgSlug(d.orgs[0].slug);
@@ -66,14 +69,21 @@ export default function App() {
     <AuthCtx.Provider value={{ user, setUser }}>
       <SportCtx.Provider value={{ sport, setSport, sports }}>
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route path="/scoreboard/:id" element={<Scoreboard />} />
           <Route path="/overlay/:id" element={<Overlay />} />
           <Route path="*" element={
             <>
               <nav className="nav">
-                <NavLink to="/" className="brand">
-                  <img className="brandlogo" src={`/logos/ncl-${sport}.svg`} alt="NCL - National Corporate League" />
+                <NavLink to="/lig" className="brand">
+                  <img className="brandlogo" src={`/logos/ncl-${sport}.svg`} alt="Platform" />
                 </NavLink>
+                {orgInfo && (
+                  <span className="orgbadge" title={orgInfo.name}>
+                    {orgInfo.logo_path && <img src={orgInfo.logo_path} alt="" />}
+                    {orgInfo.name}
+                  </span>
+                )}
                 {orgs.length > 1 && (
                   <select className="orgselect" value={getOrgSlug()} title="Organizasyon"
                     onChange={e => { setOrgSlug(e.target.value); window.location.reload(); }}>
@@ -88,7 +98,7 @@ export default function App() {
                   ))}
                 </div>
                 <span className="spacer" />
-                <NavLink to="/" end>Ana Sayfa</NavLink>
+                <NavLink to="/lig">Ana Sayfa</NavLink>
                 <NavLink to="/puan-durumu">Puan Durumu</NavLink>
                 <NavLink to="/fikstur">Fikstür</NavLink>
                 <NavLink to="/takimlar">Takımlar</NavLink>
@@ -107,7 +117,7 @@ export default function App() {
               </nav>
               <div className="container">
                 <Routes>
-                  <Route path="/" element={<Home />} />
+                  <Route path="/lig" element={<Home />} />
                   <Route path="/puan-durumu" element={<Standings />} />
                   <Route path="/fikstur" element={<Fixtures />} />
                   <Route path="/takimlar" element={<Teams />} />
@@ -116,6 +126,7 @@ export default function App() {
                   <Route path="/liderler" element={<Leaders />} />
                   <Route path="/mac/:id" element={<MatchDetail />} />
                   <Route path="/giris" element={<Login />} />
+                  <Route path="/kayit" element={<Register />} />
                   <Route path="/sifre-degistir" element={<ChangePassword />} />
                   <Route path="/kaptan" element={<CaptainPanel />} />
                   <Route path="/admin" element={<AdminPanel />} />

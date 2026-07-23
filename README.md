@@ -62,6 +62,13 @@ Notlar:
 - Yüklenen fotoğraflar yeniden deploy'da silinir (kalıcılık için ileride Supabase Storage'a taşınabilir).
 - `server/.env` ASLA GitHub'a yüklenmemelidir — bağlantı bilgisi Render panelindeki ortam değişkeninden verilir.
 
+## Tanıtım Sayfası & Self-Servis Kayıt
+Sitenin kökü (`/`) artık bir **tanıtım sayfasıdır** (platform özellikleri + Giriş / Ücretsiz Hesap Oluştur / Ligleri Keşfet). Organizasyon public sitesi `/lig` altındadır. Şirket marka bilgileri (isim, logo, renkler) netleşince tanıtım sayfası ve üst menü ona göre güncellenecektir.
+
+**Ücretsiz kayıt (`/kayit`):** Turnuva düzenleyenler kendileri hesap açar. Hesap türü Şirket (VKN, 10 hane) veya Bireysel (TCKN, 11 hane, algoritma doğrulamalı); ad soyad ve açık adres zorunludur. Formda iki uyarı yer alır: kaydın *turnuva düzenleyenler için* olduğu ve *sezon ücreti faturalarının bu bilgilere kesileceği* (bilgilerin hatasız olması gerektiği). Kayıt sonrası organizasyon + admin hesabı otomatik oluşur ve oturum açılır.
+
+**Organizasyon logosu:** Her müşteri Yönetim > Ayarlar > Organizasyon Profili'nden logosunu yükler ve bilgilerini günceller; logo üst menüde ve sayfalarında görünür.
+
 ## Çoklu Müşteri (Organizasyon) Mimarisi
 Platform artık **çok kiracılıdır**: her müşteri bir "organizasyon"dur ve sezonları, takımları, kullanıcıları, ayarları ve tahsilatı tamamen ayrıdır. Public sitede üst menüdeki organizasyon seçici ile müşteriler arasında geçilir (`?org=slug`). Organizasyon adminleri yalnızca kendi verilerini görür/yönetir; platform süper admini seçiciyle tüm müşterileri yönetir ve Yönetim > Organizasyonlar'dan yeni müşteri açar. Puan durumu ve fikstürde **sezon arşivi** seçicisi vardır: biten turnuvalar tablo/fikstür/şampiyonuyla görüntülenebilir.
 

@@ -93,7 +93,7 @@ publicRouter.get('/sports', ah(async (req, res) => {
   for (const k of SPORT_KEYS) {
     list.push({ key: k, label: SPORTS[k].label, has_season: !!(await getActiveSeason(k, org?.id)) });
   }
-  res.json({ sports: list, org: org ? { name: org.name, slug: org.slug } : null });
+  res.json({ sports: list, org: org ? { name: org.name, slug: org.slug, logo_path: org.logo_path } : null });
 }));
 
 // Arsiv: bu brans + org'un tum sezonlari

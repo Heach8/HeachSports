@@ -431,6 +431,28 @@ adminRouter.put('/settings', ah(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// --- Organizasyon profili (kendi org'u): logo + bilgiler ---
+adminRouter.get('/organization', ah(async (req, res) => {
+  const org = await resolveOrg(req);
+  res.json({ organization: org });
+}));
+
+adminRouter.put('/organization', ah(async (req, res) => {
+  const org = await resolveOrg(req);
+  const b = req.body;
+  await qRun('UPDATE organizations SET name = ?, contact_name = ?, address = ?, tax_id = ? WHERE id = ?',
+    [String(b.name || org.name).trim(), b.contact_name ?? org.contact_name, b.address ?? org.address, b.tax_id ?? org.tax_id, org.id]);
+  res.json({ ok: true });
+}));
+
+adminRouter.post('/organization/logo', upload.fields([{ name: 'logo', maxCount: 1 }]), ah(async (req, res) => {
+  const org = await resolveOrg(req);
+  const logo = req.files?.logo?.[0];
+  if (!logo) return res.status(400).json({ error: 'Logo dosyasi gerekli (png/jpg)' });
+  await qRun('UPDATE organizations SET logo_path = ? WHERE id = ?', ['/uploads/' + logo.filename, org.id]);
+  res.json({ ok: true, logo_path: '/uploads/' + logo.filename });
+}));
+
 // --- Platform: birim fiyat (tum adminler okur) ---
 adminRouter.get('/platform-price', ah(async (req, res) => {
   res.json({ platform_team_price: Number(await getSetting('platform_team_price', '0')) || 0 });
