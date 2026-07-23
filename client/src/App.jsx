@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Routes, Route, NavLink, useNavigate } from 'react-router-dom';
+import { Routes, Route, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { api, setOrgSlug, getOrgSlug } from './api.js';
 import Home from './pages/Home.jsx';
 import Standings from './pages/Standings.jsx';
@@ -26,6 +26,29 @@ export const useAuth = () => useContext(AuthCtx);
 
 const SportCtx = createContext(null);
 export const useSport = () => useContext(SportCtx);
+
+function OrgBar({ orgs }) {
+  const loc = useLocation();
+  // Sadece lig icerik sayfalarinda goster (giris/kayit/panel/konsol'da gizle)
+  const publicPaths = ['/lig', '/puan-durumu', '/fikstur', '/takimlar', '/liderler', '/takim/', '/oyuncu/', '/mac/'];
+  const show = orgs.length > 1 && publicPaths.some(p => loc.pathname === p || loc.pathname.startsWith(p));
+  if (!show) return null;
+  return (
+    <div className="orgbar">
+      <span className="orgbar-label">Lig / Organizasyon</span>
+      <div className="orgbar-chips">
+        {orgs.map(o => (
+          <button key={o.slug}
+            className={`orgchip ${getOrgSlug() === o.slug ? 'active' : ''}`}
+            onClick={() => { setOrgSlug(o.slug); window.location.assign('/lig'); }}>
+            {o.logo_path && <img src={o.logo_path} alt="" />}
+            {o.name}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 const SPORT_ICONS = { volleyball: '🏐', beach_volleyball: '🏖️', football: '⚽', basketball: '🏀' };
 
@@ -88,7 +111,7 @@ export default function App() {
                   ))}
                 </div>
                 <span className="spacer" />
-                <NavLink to="/lig">Ana Sayfa</NavLink>
+                <NavLink to="/" end>Ana Sayfa</NavLink>
                 <NavLink to="/puan-durumu">Puan Durumu</NavLink>
                 <NavLink to="/fikstur">Fikstür</NavLink>
                 <NavLink to="/takimlar">Takımlar</NavLink>
@@ -106,6 +129,7 @@ export default function App() {
                 )}
               </nav>
               <div className="container">
+                <OrgBar orgs={orgs} />
                 <Routes>
                   <Route path="/lig" element={<Home />} />
                   <Route path="/puan-durumu" element={<Standings />} />
