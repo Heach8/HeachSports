@@ -258,6 +258,17 @@ publicRouter.get('/leaders', ah(async (req, res) => {
       GROUP BY p.id, t.name, t.logo_path ORDER BY value DESC LIMIT 10
     `, [season.id]);
   }
+  // Macin Oyuncusu (MVP) siralamasi - tum branslar
+  titles.push({ key: 'mvp', label: 'Maçın Oyuncusu', suffix: '' });
+  leaders.mvp = await qAll(`
+    SELECT p.id, p.first_name, p.last_name, p.photo_path, t.name AS team_name, t.logo_path AS team_logo,
+      COUNT(*) AS value
+    FROM matches m
+    JOIN players p ON p.id = m.mvp_player_id
+    JOIN teams t ON t.id = p.team_id
+    WHERE m.season_id = ? AND m.status = 'finished' AND m.mvp_player_id IS NOT NULL
+    GROUP BY p.id, t.name, t.logo_path ORDER BY value DESC LIMIT 10
+  `, [season.id]);
   res.json({ leaders, titles });
 }));
 

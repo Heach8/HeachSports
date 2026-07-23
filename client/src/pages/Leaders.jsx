@@ -14,7 +14,7 @@ export default function Leaders() {
       <div className="grid cols2">
         {data.titles.map(t => (
           <div className="card" key={t.key}>
-            <h2 style={{ marginTop: 0 }}>{t.label}</h2>
+            <h2 style={{ marginTop: 0 }}>{t.key === 'mvp' ? '⭐ ' : ''}{t.label}</h2>
             <table>
               <tbody>
                 {(data.leaders[t.key] || []).map((p, i) => (
