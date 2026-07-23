@@ -79,6 +79,9 @@ Platform artık **çok kiracılıdır**: her müşteri bir "organizasyon"dur ve 
 
 **Satış demosu:** Temiz kurulumda (basla.bat) iki örnek müşteri gelir — *Marmara Şirketler Ligi* (voleybol: 2025 arşiv sezonu bitmiş + 2026 sezonu canlı maçla devam ediyor) ve *Ege Kurumsal Turnuvaları* (futbol: kupa arşivi + devam eden lig, canlı maçlı). Girişler: platform sahibi `admin@adminim.com/admin123`, Marmara `marmara@ncl.com/admin123`, Ege `admin@ncl.com` veya `ege@ncl.com` /admin123.
 
+## Web Sitesine Gömme (Embed)
+Müşteriler turnuva ekranlarını (puan durumu, fikstür, istatistik liderleri, canlı skorlar) **kendi web sitelerine iframe ile gömebilir**. Yönetim > Web Sitene Ekle sekmesinde görünüm/branş/tema/yükseklik seçilip hazır `<iframe>` kodu kopyalanır ve müşterinin sitesine yapıştırılır. Gömülen ekran menüsüz ve temiz gelir, açık/koyu tema müşteri sitesine uyar, skor girildikçe SSE ile canlı güncellenir. Teknik uç: `/embed?org=slug&sport=...&view=standings|fixtures|leaders|live&theme=dark|light[&season_id=..]`. Bu sayfalar iframe için `frame-ancestors *` ile serbesttir.
+
 ## Roller
 - **Süper Admin:** Her şey + admin oluşturma
 - **Admin:** Onay kuyruğu, takım/kullanıcı/fikstür/ceza yönetimi, ayarlar

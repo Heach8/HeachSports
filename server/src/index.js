@@ -17,6 +17,13 @@ const app = express();
 app.set('trust proxy', 1); // Render/Vercel gibi proxy arkasinda dogru IP/cookie davranisi
 const PORT = process.env.PORT || 3001;
 
+app.use((req, res, next) => {
+  // /embed ve /overlay sayfalarinin baska sitelere iframe ile gomulmesine izin ver
+  if (req.path.startsWith('/embed') || req.path.startsWith('/overlay')) {
+    res.setHeader('Content-Security-Policy', 'frame-ancestors *');
+  }
+  next();
+});
 app.use(express.json());
 app.use(session({
   secret: process.env.SESSION_SECRET || 'ncl-gizli-anahtar-degistirin',

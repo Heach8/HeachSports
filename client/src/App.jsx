@@ -11,6 +11,7 @@ import Leaders from './pages/Leaders.jsx';
 import MatchDetail from './pages/MatchDetail.jsx';
 import Scoreboard from './pages/Scoreboard.jsx';
 import Overlay from './pages/Overlay.jsx';
+import Embed from './pages/Embed.jsx';
 import Login from './pages/Login.jsx';
 import Landing from './pages/Landing.jsx';
 import Register from './pages/Register.jsx';
@@ -72,6 +73,7 @@ export default function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/scoreboard/:id" element={<Scoreboard />} />
           <Route path="/overlay/:id" element={<Overlay />} />
+          <Route path="/embed" element={<Embed />} />
           <Route path="*" element={
             <>
               <nav className="nav">

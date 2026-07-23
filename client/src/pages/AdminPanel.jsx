@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { useAuth } from '../App.jsx';
 
-const TABS = ['Onaylar', 'Takımlar', 'Kullanıcılar', 'Fikstür', 'Sezonlar', 'Tahsilat', 'Cezalar', 'Ayarlar'];
+const TABS = ['Onaylar', 'Takımlar', 'Kullanıcılar', 'Fikstür', 'Sezonlar', 'Tahsilat', 'Web Sitene Ekle', 'Cezalar', 'Ayarlar'];
 const SPORT_OPTS = [
   { key: 'volleyball', label: 'Voleybol' },
   { key: 'beach_volleyball', label: 'Plaj Voleybolu' },
@@ -37,6 +37,7 @@ export default function AdminPanel() {
       {tab === 'Fikstür' && <FixtureTab flash={flash} />}
       {tab === 'Sezonlar' && <SeasonsTab flash={flash} isSuper={user.role === 'super_admin'} />}
       {tab === 'Tahsilat' && <BillingTab flash={flash} />}
+      {tab === 'Web Sitene Ekle' && <EmbedTab flash={flash} />}
       {tab === 'Cezalar' && <PenaltiesTab flash={flash} />}
       {tab === 'Ayarlar' && <SettingsTab flash={flash} />}
       {tab === 'Organizasyonlar' && <OrgsTab flash={flash} />}
@@ -1000,6 +1001,66 @@ function PlatformTab({ flash }) {
             ))}
           </tbody>
         </table>
+      </div>
+    </>
+  );
+}
+
+
+function EmbedTab({ flash }) {
+  const [org, setOrg] = useState(null);
+  const [sport, setSport] = useState('volleyball');
+  const [view, setView] = useState('standings');
+  const [theme, setTheme] = useState('dark');
+  const [height, setHeight] = useState(500);
+  useEffect(() => { api('/admin/organization').then(d => setOrg(d.organization)); }, []);
+  if (!org) return null;
+  const base = window.location.origin;
+  const url = `${base}/embed?org=${org.slug}&sport=${sport}&view=${view}&theme=${theme}`;
+  const code = `<iframe src="${url}" style="width:100%;height:${height}px;border:0;" title="Turnuva"></iframe>`;
+  const VIEWS = { standings: 'Puan Durumu', fixtures: 'Fikstür', leaders: 'İstatistik Liderleri', live: 'Canlı Skorlar' };
+  return (
+    <>
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>🌐 Web Sitene Ekle</h2>
+        <p className="muted" style={{ fontSize: 13 }}>
+          Aşağıdaki kodu kendi web sitenizin HTML'ine yapıştırın — turnuva ekranınız sitenizin içinde,
+          canlı güncellenerek görünür. Skor girdikçe otomatik yenilenir.
+        </p>
+        <div className="formrow">
+          <div><label>Görünüm</label>
+            <select value={view} onChange={e => setView(e.target.value)}>
+              {Object.entries(VIEWS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
+          <div><label>Branş</label>
+            <select value={sport} onChange={e => setSport(e.target.value)}>
+              <option value="volleyball">Voleybol</option>
+              <option value="beach_volleyball">Plaj Voleybolu</option>
+              <option value="football">Futbol</option>
+              <option value="basketball">Basketbol</option>
+            </select>
+          </div>
+          <div><label>Tema</label>
+            <select value={theme} onChange={e => setTheme(e.target.value)}>
+              <option value="dark">Koyu</option>
+              <option value="light">Açık</option>
+            </select>
+          </div>
+          <div><label>Yükseklik (px)</label>
+            <input type="number" min="200" step="50" value={height} onChange={e => setHeight(e.target.value)} />
+          </div>
+        </div>
+        <label>Gömme Kodu</label>
+        <textarea readOnly value={code} rows={3} style={{ fontFamily: 'monospace', fontSize: 12 }} onClick={e => e.target.select()} />
+        <button className="btn primary" style={{ marginTop: 8 }} onClick={() => { navigator.clipboard.writeText(code); flash('Gömme kodu kopyalandı!'); }}>Kodu Kopyala</button>
+        <a className="btn" style={{ marginTop: 8, marginLeft: 8 }} href={url} target="_blank" rel="noreferrer">Önizle ↗</a>
+      </div>
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>Canlı Önizleme</h2>
+        <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)', background: theme === 'light' ? '#fff' : 'var(--bg2)' }}>
+          <iframe src={url} style={{ width: '100%', height: height + 'px', border: 0 }} title="onizleme" />
+        </div>
       </div>
     </>
   );
