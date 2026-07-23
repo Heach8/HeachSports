@@ -22,7 +22,7 @@ export default function AdminPanel() {
   }
 
   const flash = (text, ok = true) => { setMsg({ text, ok }); setTimeout(() => setMsg(null), 4000); };
-  const tabs = user.role === 'super_admin' ? [...TABS, 'Organizasyonlar'] : TABS;
+  const tabs = user.role === 'super_admin' ? [...TABS, 'Organizasyonlar', 'Platform'] : TABS;
 
   return (
     <>
@@ -33,13 +33,14 @@ export default function AdminPanel() {
       </div>
       {tab === 'Onaylar' && <Approvals flash={flash} />}
       {tab === 'Takımlar' && <TeamsTab flash={flash} />}
-      {tab === 'Kullanıcılar' && <UsersTab flash={flash} />}
+      {tab === 'Kullanıcılar' && <UsersTab flash={flash} isSuper={user.role === 'super_admin'} />}
       {tab === 'Fikstür' && <FixtureTab flash={flash} />}
-      {tab === 'Sezonlar' && <SeasonsTab flash={flash} />}
+      {tab === 'Sezonlar' && <SeasonsTab flash={flash} isSuper={user.role === 'super_admin'} />}
       {tab === 'Tahsilat' && <BillingTab flash={flash} />}
       {tab === 'Cezalar' && <PenaltiesTab flash={flash} />}
       {tab === 'Ayarlar' && <SettingsTab flash={flash} />}
       {tab === 'Organizasyonlar' && <OrgsTab flash={flash} />}
+      {tab === 'Platform' && <PlatformTab flash={flash} />}
     </>
   );
 }
@@ -134,7 +135,7 @@ function TeamsTab({ flash }) {
   );
 }
 
-function UsersTab({ flash }) {
+function UsersTab({ flash, isSuper }) {
   const [users, setUsers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [f, setF] = useState({ email: '', password: '', name: '', role: 'captain', team_id: '' });
@@ -164,6 +165,7 @@ function UsersTab({ flash }) {
               <option value="captain">Kaptan</option>
               <option value="scorekeeper">Masa Görevlisi</option>
               <option value="admin">Admin</option>
+              {isSuper && <option value="super_admin">Süper Admin (platform geneli)</option>}
             </select>
           </div>
           {f.role === 'captain' && (
@@ -472,7 +474,7 @@ function SettingsTab({ flash }) {
 
 const DEFAULT_COURT = { volleyball: 6, beach_volleyball: 2, football: 7, basketball: 5 };
 
-function SeasonsTab({ flash }) {
+function SeasonsTab({ flash, isSuper }) {
   const [seasons, setSeasons] = useState([]);
   const [name, setName] = useState('');
   const [sport, setSport] = useState('volleyball');
@@ -487,12 +489,29 @@ function SeasonsTab({ flash }) {
   const [groupCount, setGroupCount] = useState(2);
   const [advanceCount, setAdvanceCount] = useState(2);
   const [groupMatches, setGroupMatches] = useState(0); // 0 = tam lig
+  const [teamQuota, setTeamQuota] = useState(4);
+  const [payMethod, setPayMethod] = useState('havale');
+  const [unitPrice, setUnitPrice] = useState(0);
+  const [cardModal, setCardModal] = useState(null);
   const load = () => api('/admin/seasons').then(d => setSeasons(d.seasons));
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); api('/admin/platform-price').then(d => setUnitPrice(d.platform_team_price)); }, []);
+  const seasonBody = () => ({ name, sport, court_size: Number(courtSize), yellow_limit: sport === 'football' ? Number(yellowLimit) : 0, red_ban: sport === 'football' ? redBan : false, format, group_count: Number(groupCount), advance_count: Number(advanceCount), group_matches: Number(groupMatches) || 0, foul_limit: sport === 'basketball' ? Number(foulLimit) : 0, period_count: sport === 'basketball' ? Number(periodCount) : null, two_legged: format !== 'league' && twoLegged, entry_fee: entryFee ? Number(entryFee) : 0, team_quota: Number(teamQuota), payment_method: payMethod });
+  const submitSeason = async (body) => {
+    const d = await api('/admin/seasons', { method: 'POST', body });
+    if (d.approval_status === 'pending') flash('Sezon oluşturuldu — ödeme (havale/nakit) sonrası süper admin onayıyla kullanıma açılacak.');
+    else if (d.platform_fee) flash('Ödeme alındı, sezon kullanıma hazır! 🎉');
+    else flash('Sezon eklendi.');
+    setName(''); load();
+  };
   const add = async (e) => {
     e.preventDefault();
-    try { await api('/admin/seasons', { method: 'POST', body: { name, sport, court_size: Number(courtSize), yellow_limit: sport === 'football' ? Number(yellowLimit) : 0, red_ban: sport === 'football' ? redBan : false, format, group_count: Number(groupCount), advance_count: Number(advanceCount), group_matches: Number(groupMatches) || 0, foul_limit: sport === 'basketball' ? Number(foulLimit) : 0, period_count: sport === 'basketball' ? Number(periodCount) : null, two_legged: format !== 'league' && twoLegged, entry_fee: entryFee ? Number(entryFee) : 0 } }); flash('Sezon eklendi.'); setName(''); load(); }
-    catch (err) { flash(err.message, false); }
+    try {
+      if (!isSuper && unitPrice > 0 && payMethod === 'kart') {
+        setCardModal({ number: '', holder: '', exp: '', cvv: '' });
+        return;
+      }
+      await submitSeason(seasonBody());
+    } catch (err) { flash(err.message, false); }
   };
   const activate = async (id) => {
     try { await api(`/admin/seasons/${id}/activate`, { method: 'POST' }); flash('Sezon aktifleştirildi.'); load(); }
@@ -588,10 +607,55 @@ function SeasonsTab({ flash }) {
               </div>
             </>
           )}
+          {!isSuper && unitPrice > 0 && (
+            <>
+              <div><label>Takım Sayısı (kontenjan) *</label>
+                <select value={teamQuota} onChange={e => setTeamQuota(e.target.value)}>
+                  {[2, 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32].map(n => <option key={n} value={n}>{n} takım</option>)}
+                </select>
+              </div>
+              <div><label>Sezon Ücreti Ödemesi</label>
+                <select value={payMethod} onChange={e => setPayMethod(e.target.value)}>
+                  <option value="havale">Havale/EFT (onay gerekir)</option>
+                  <option value="nakit">Nakit (onay gerekir)</option>
+                  <option value="kart">Kredi Kartı (anında aktif)</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                <span style={{ fontWeight: 800, color: 'var(--accent)' }}>
+                  Tutar: {(unitPrice * teamQuota).toLocaleString('tr-TR')} ₺
+                  <span className="muted" style={{ fontWeight: 400 }}> ({unitPrice} ₺ × {teamQuota})</span>
+                </span>
+              </div>
+            </>
+          )}
           <div style={{ display: 'flex', alignItems: 'flex-end' }}><button className="btn primary">Ekle</button></div>
         </form>
         <p className="muted" style={{ marginTop: 8 }}>Her branşın kendi aktif sezonu vardır; yeni sezonu aktifleştirince öncekisi arşive düşer. Saha içi sayısı maç konsolundaki dizilimi belirler (örn. plaj voleybolu 2, 3 veya 4 kişilik oynanabilir); geri kalan oyuncular yedek kulübesinde görünür.</p>
       </div>
+      {cardModal && (
+        <div className="goal-modal-backdrop" onClick={() => setCardModal(null)}>
+          <div className="goal-modal card" onClick={e => e.stopPropagation()}>
+            <h2 style={{ marginTop: 0 }}>💳 Kart ile Ödeme</h2>
+            <p className="muted" style={{ fontSize: 13 }}>Tutar: <b style={{ color: 'var(--accent)' }}>{(unitPrice * teamQuota).toLocaleString('tr-TR')} ₺</b> — ödeme onaylanınca sezon anında kullanıma açılır. <i>(Test modu: gerçek POS entegrasyonu için sanal POS bilgileriniz bağlanacaktır.)</i></p>
+            <label>Kart Numarası</label>
+            <input inputMode="numeric" maxLength={19} placeholder="0000 0000 0000 0000" value={cardModal.number} onChange={e => setCardModal({ ...cardModal, number: e.target.value })} />
+            <label>Kart Üzerindeki İsim</label>
+            <input value={cardModal.holder} onChange={e => setCardModal({ ...cardModal, holder: e.target.value })} />
+            <div className="formrow">
+              <div><label>SKT (AA/YY)</label><input maxLength={5} placeholder="12/27" value={cardModal.exp} onChange={e => setCardModal({ ...cardModal, exp: e.target.value })} /></div>
+              <div><label>CVV</label><input maxLength={3} placeholder="123" value={cardModal.cvv} onChange={e => setCardModal({ ...cardModal, cvv: e.target.value })} /></div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+              <button className="btn green big" style={{ flex: 1 }} onClick={async () => {
+                try { await submitSeason(seasonBody()); setCardModal(null); }
+                catch (err) { flash(err.message, false); }
+              }}>Öde ve Sezonu Aç</button>
+              <button className="btn" onClick={() => setCardModal(null)}>Vazgeç</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="card">
         <table>
           <thead><tr><th>Sezon</th><th>Branş</th><th>Saha İçi</th><th>Durum</th><th></th></tr></thead>
@@ -611,9 +675,14 @@ function SeasonsTab({ flash }) {
                     {se.foul_limit ? `${se.foul_limit} faul = oyun dışı` : 'faul limiti yok'} · {se.period_count === 2 ? '2 devre' : '4 çeyrek'}
                   </div>}
                 </td>
-                <td>{se.is_active ? <span className="badge approved">Aktif</span> : <span className="badge finished">Arşiv</span>}</td>
+                <td>
+                  {se.approval_status === 'pending' ? <span className="badge pending">Onay Bekliyor</span>
+                    : se.approval_status === 'rejected' ? <span className="badge rejected">Reddedildi</span>
+                    : se.is_active ? <span className="badge approved">Aktif</span> : <span className="badge finished">Arşiv</span>}
+                  {se.platform_fee ? <div className="muted" style={{ fontSize: 11 }}>{Number(se.platform_fee).toLocaleString('tr-TR')} ₺ · {se.payment_method}{se.team_quota ? ` · ${se.team_quota} takım` : ''}</div> : null}
+                </td>
                 <td style={{ textAlign: 'right' }}>
-                  {!se.is_active && <button className="btn sm" onClick={() => activate(se.id)}>Aktifleştir</button>}
+                  {!se.is_active && se.approval_status === 'approved' && <button className="btn sm" onClick={() => activate(se.id)}>Aktifleştir</button>}
                 </td>
               </tr>
             ))}
@@ -810,6 +879,68 @@ function OrgsTab({ flash }) {
                 <td><b>{o.name}</b></td>
                 <td className="muted">{o.slug}</td>
                 <td>{o.eligibility_required ? 'Açık' : 'Kapalı'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+
+function PlatformTab({ flash }) {
+  const [data, setData] = useState(null);
+  const [price, setPrice] = useState('');
+  const load = () => api('/admin/platform').then(d => { setData(d); setPrice(d.platform_team_price); });
+  useEffect(() => { load(); }, []);
+  if (!data) return null;
+  const PM = { havale: 'Havale/EFT', nakit: 'Nakit', kart: 'Kredi Kartı' };
+  const act = async (id, action) => {
+    try { await api(`/admin/platform/seasons/${id}/${action}`, { method: 'POST' }); flash(action === 'approve' ? 'Sezon onaylandı — müşteri kullanabilir.' : 'Sezon reddedildi.'); load(); }
+    catch (e) { flash(e.message, false); }
+  };
+  return (
+    <>
+      <div className="card" style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <div><label>Takım Başı Sezon Ücreti (₺)</label>
+          <input type="number" min="0" style={{ width: 160 }} value={price} onChange={e => setPrice(e.target.value)} /></div>
+        <button className="btn primary" onClick={async () => {
+          try { await api('/admin/platform/price', { method: 'PUT', body: { platform_team_price: Number(price) } }); flash('Fiyat güncellendi.'); load(); }
+          catch (e) { flash(e.message, false); }
+        }}>Kaydet</button>
+        <span className="muted" style={{ fontSize: 12 }}>0 = ücretsiz mod (onay akışı kapalı). Üyelik her zaman ücretsizdir; ücret yalnızca sezon açarken alınır.</span>
+      </div>
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>💰 Onay Bekleyen Sezonlar (Havale/Nakit)</h2>
+        {data.pending.length === 0 && <p className="muted">Bekleyen sezon yok. 🎉</p>}
+        {data.pending.map(s => (
+          <div key={s.id} className="matchrow">
+            <div style={{ flex: 1 }}>
+              <b>{s.org_name}</b> — {s.name}
+              <div className="muted">{s.team_quota} takım · {Number(s.platform_fee).toLocaleString('tr-TR')} ₺ · {PM[s.payment_method]}</div>
+            </div>
+            <div style={{ whiteSpace: 'nowrap' }}>
+              <button className="btn sm green" onClick={() => act(s.id, 'approve')}>Ödeme Alındı — Onayla</button>{' '}
+              <button className="btn sm red" onClick={() => act(s.id, 'reject')}>Reddet</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>Platform Ödeme Geçmişi</h2>
+        <table>
+          <thead><tr><th>Müşteri</th><th>Sezon</th><th className="num">Tutar</th><th>Yöntem</th><th>Durum</th><th>Tarih</th></tr></thead>
+          <tbody>
+            {data.payments.map(p => (
+              <tr key={p.id}>
+                <td>{p.org_name}</td>
+                <td className="muted">{p.season_name || '-'}</td>
+                <td className="num"><b>{Number(p.amount).toLocaleString('tr-TR')} ₺</b></td>
+                <td>{PM[p.method]}</td>
+                <td><span className={`badge ${p.status === 'paid' ? 'approved' : p.status === 'rejected' ? 'rejected' : 'pending'}`}>
+                  {p.status === 'paid' ? 'Ödendi' : p.status === 'rejected' ? 'Reddedildi' : 'Bekliyor'}</span></td>
+                <td className="muted">{p.created_at?.slice(0, 10)}</td>
               </tr>
             ))}
           </tbody>

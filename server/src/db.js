@@ -152,6 +152,10 @@ CREATE TABLE IF NOT EXISTS seasons (
   advance_count INTEGER,
   group_matches INTEGER,
   knockout_byes TEXT,
+  approval_status TEXT NOT NULL DEFAULT 'approved',
+  payment_method TEXT,
+  team_quota INTEGER,
+  platform_fee REAL,
   is_active INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS teams (
@@ -245,6 +249,16 @@ CREATE TABLE IF NOT EXISTS payments (
   invoice_no TEXT,
   created_at TEXT NOT NULL DEFAULT ${NOW}
 );
+CREATE TABLE IF NOT EXISTS platform_payments (
+  id ${PK},
+  organization_id INTEGER NOT NULL REFERENCES organizations(id),
+  season_id INTEGER REFERENCES seasons(id),
+  amount REAL NOT NULL,
+  method TEXT NOT NULL CHECK (method IN ('havale','nakit','kart')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','paid','rejected')),
+  note TEXT,
+  created_at TEXT NOT NULL DEFAULT ${NOW}
+);
 CREATE TABLE IF NOT EXISTS penalties (
   id ${PK},
   player_id INTEGER NOT NULL REFERENCES players(id),
@@ -281,6 +295,10 @@ export async function initSchema() {
     'ALTER TABLE seasons ADD COLUMN group_matches INTEGER',
     'ALTER TABLE seasons ADD COLUMN organization_id INTEGER REFERENCES organizations(id)',
     'ALTER TABLE users ADD COLUMN organization_id INTEGER REFERENCES organizations(id)',
+    "ALTER TABLE seasons ADD COLUMN approval_status TEXT NOT NULL DEFAULT 'approved'",
+    'ALTER TABLE seasons ADD COLUMN payment_method TEXT',
+    'ALTER TABLE seasons ADD COLUMN team_quota INTEGER',
+    'ALTER TABLE seasons ADD COLUMN platform_fee REAL',
     'ALTER TABLE seasons ADD COLUMN entry_fee REAL',
     'ALTER TABLE teams ADD COLUMN billing_title TEXT',
     'ALTER TABLE teams ADD COLUMN tax_office TEXT',

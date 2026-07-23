@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { qGet, qAll, qRun, qInsert, hashPassword, getActiveSeason, resolveOrg } from './db.js';
+import { qGet, qAll, qRun, qInsert, hashPassword, getActiveSeason, resolveOrg, getSetting, setSetting } from './db.js';
 import { requireRole, ah } from './auth.js';
 import { upload } from './uploads.js';
 import { SPORT_KEYS, sportOf } from './sports.js';
@@ -81,14 +81,40 @@ adminRouter.post('/seasons', ah(async (req, res) => {
   const tl = format !== 'league' && req.body.two_legged ? 1 : 0;
   const fee = Number(req.body.entry_fee) > 0 ? Number(req.body.entry_fee) : null;
   const org = await resolveOrg(req);
+  const isSuper = req.session.user.role === 'super_admin';
+
+  // Platform ucreti: sezon acmak takim basi ucretlidir (super admin haric)
+  const unitPrice = Number(await getSetting('platform_team_price', '0')) || 0;
+  const quota = Math.max(2, Math.min(64, Number(req.body.team_quota) || 0));
+  let approval = 'approved', payMethod = null, platformFee = 0;
+  if (!isSuper && unitPrice > 0) {
+    if (!req.body.team_quota) return res.status(400).json({ error: 'Takim sayisi (kontenjan) secilmeli' });
+    payMethod = ['havale', 'nakit', 'kart'].includes(req.body.payment_method) ? req.body.payment_method : null;
+    if (!payMethod) return res.status(400).json({ error: 'Odeme yontemi secilmeli (havale/nakit/kart)' });
+    platformFee = unitPrice * quota;
+    // Kart: odeme sistemden alinir, sezon aninda kullanilabilir.
+    // (POS entegrasyonuna hazir: simdilik test modunda odeme basarili kabul edilir)
+    // Havale/Nakit: super admin onayina duser.
+    approval = payMethod === 'kart' ? 'approved' : 'pending';
+  }
+
   const id = await qInsert(
-    'INSERT INTO seasons (organization_id, name, sport, court_size, yellow_limit, red_ban, foul_limit, period_count, two_legged, entry_fee, format, group_count, advance_count, group_matches, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)',
-    [org.id, name, sport, cs, yl, rb, fl, pc, tl, fee, format, gc, ac, gm]);
-  res.json({ id });
+    'INSERT INTO seasons (organization_id, name, sport, court_size, yellow_limit, red_ban, foul_limit, period_count, two_legged, entry_fee, format, group_count, advance_count, group_matches, approval_status, payment_method, team_quota, platform_fee, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)',
+    [org.id, name, sport, cs, yl, rb, fl, pc, tl, fee, format, gc, ac, gm, approval, payMethod, req.body.team_quota ? quota : null, platformFee || null]);
+  if (!isSuper && unitPrice > 0) {
+    await qInsert(
+      'INSERT INTO platform_payments (organization_id, season_id, amount, method, status, note) VALUES (?, ?, ?, ?, ?, ?)',
+      [org.id, id, platformFee, payMethod, payMethod === 'kart' ? 'paid' : 'pending',
+       payMethod === 'kart' ? 'Kart ile online odeme (test modu)' : 'Super admin onayi bekleniyor']);
+  }
+  res.json({ id, approval_status: approval, platform_fee: platformFee });
 }));
 adminRouter.post('/seasons/:id/activate', ah(async (req, res) => {
   const season = await qGet('SELECT * FROM seasons WHERE id = ?', [req.params.id]);
   if (!season) return res.status(404).json({ error: 'Sezon bulunamadi' });
+  if (season.approval_status !== 'approved') {
+    return res.status(400).json({ error: 'Bu sezon henuz onaylanmadi: odeme onayi sonrasi kullanilabilir' });
+  }
   await qRun('UPDATE seasons SET is_active = 0 WHERE sport = ? AND organization_id = ?', [season.sport, season.organization_id]);
   await qRun('UPDATE seasons SET is_active = 1 WHERE id = ?', [req.params.id]);
   res.json({ ok: true });
@@ -100,6 +126,16 @@ adminRouter.post('/teams', upload.fields([{ name: 'logo', maxCount: 1 }]), ah(as
   const org = await resolveOrg(req);
   const sid = season_id || (await getActiveSeason(sport || 'volleyball', org.id))?.id;
   if (!name || !sid) return res.status(400).json({ error: 'Takim adi ve sezon gerekli' });
+  const seasonRow = await qGet('SELECT * FROM seasons WHERE id = ?', [sid]);
+  if (seasonRow?.approval_status !== 'approved') {
+    return res.status(400).json({ error: 'Sezon onaylanmadan takim eklenemez' });
+  }
+  if (seasonRow.team_quota) {
+    const cnt = (await qGet('SELECT COUNT(*) AS c FROM teams WHERE season_id = ?', [sid])).c;
+    if (cnt >= seasonRow.team_quota) {
+      return res.status(400).json({ error: `Kontenjan dolu (${seasonRow.team_quota} takim). Ek takim icin super admin ile iletisime gecin.` });
+    }
+  }
   const logo = req.files?.logo?.[0];
   const id = await qInsert('INSERT INTO teams (season_id, name, company, logo_path) VALUES (?, ?, ?, ?)',
     [sid, name, company || null, logo ? '/uploads/' + logo.filename : null]);
@@ -392,6 +428,54 @@ adminRouter.put('/settings', ah(async (req, res) => {
     await qRun('UPDATE organizations SET eligibility_required = ? WHERE id = ?',
       [req.body.eligibility_check_enabled ? 1 : 0, org.id]);
   }
+  res.json({ ok: true });
+}));
+
+// --- Platform: birim fiyat (tum adminler okur) ---
+adminRouter.get('/platform-price', ah(async (req, res) => {
+  res.json({ platform_team_price: Number(await getSetting('platform_team_price', '0')) || 0 });
+}));
+
+// --- Platform yonetimi (sadece super admin) ---
+adminRouter.get('/platform', ah(async (req, res) => {
+  if (req.session.user.role !== 'super_admin') return res.status(403).json({ error: 'Yetkisiz' });
+  const pending = await qAll(`
+    SELECT s.id, s.name, s.sport, s.team_quota, s.platform_fee, s.payment_method, o.name AS org_name
+    FROM seasons s JOIN organizations o ON o.id = s.organization_id
+    WHERE s.approval_status = 'pending' ORDER BY s.id DESC
+  `);
+  const payments = await qAll(`
+    SELECT p.*, o.name AS org_name, s.name AS season_name
+    FROM platform_payments p
+    JOIN organizations o ON o.id = p.organization_id
+    LEFT JOIN seasons s ON s.id = p.season_id
+    ORDER BY p.id DESC LIMIT 100
+  `);
+  res.json({
+    platform_team_price: Number(await getSetting('platform_team_price', '0')) || 0,
+    pending, payments
+  });
+}));
+
+adminRouter.put('/platform/price', ah(async (req, res) => {
+  if (req.session.user.role !== 'super_admin') return res.status(403).json({ error: 'Yetkisiz' });
+  const p = Number(req.body.platform_team_price);
+  if (!(p >= 0)) return res.status(400).json({ error: 'Gecerli fiyat girin' });
+  await setSetting('platform_team_price', String(p));
+  res.json({ ok: true });
+}));
+
+adminRouter.post('/platform/seasons/:id/approve', ah(async (req, res) => {
+  if (req.session.user.role !== 'super_admin') return res.status(403).json({ error: 'Yetkisiz' });
+  await qRun("UPDATE seasons SET approval_status = 'approved' WHERE id = ?", [req.params.id]);
+  await qRun("UPDATE platform_payments SET status = 'paid', note = 'Super admin onayladi (odeme alindi)' WHERE season_id = ? AND status = 'pending'", [req.params.id]);
+  res.json({ ok: true });
+}));
+
+adminRouter.post('/platform/seasons/:id/reject', ah(async (req, res) => {
+  if (req.session.user.role !== 'super_admin') return res.status(403).json({ error: 'Yetkisiz' });
+  await qRun("UPDATE seasons SET approval_status = 'rejected' WHERE id = ?", [req.params.id]);
+  await qRun("UPDATE platform_payments SET status = 'rejected' WHERE season_id = ? AND status = 'pending'", [req.params.id]);
   res.json({ ok: true });
 }));
 

@@ -40,16 +40,18 @@ const ORGS = [
       { name: 'Getir', company: 'Getir Perakende Lojistik A.Ş.', logo: '/logos/getir.svg' },
       { name: 'Migros', company: 'Migros Ticaret A.Ş.', logo: '/logos/migros.svg' }
     ],
-    adminEmail: 'ege@ncl.com', scorerEmail: 'hakem2@ncl.com', captains: false
+    adminEmail: 'admin@ncl.com', extraAdmin: 'ege@ncl.com', scorerEmail: 'hakem2@ncl.com', captains: false
   }
 ];
 
-await addUser('admin@ncl.com', 'admin123', 'Platform Yöneticisi', 'super_admin', null, null);
+await addUser('admin@adminim.com', 'admin123', 'Platform Sahibi', 'super_admin', null, null);
+await qRun("INSERT INTO settings (key, value) VALUES ('platform_team_price', '500') ON CONFLICT (key) DO NOTHING");
 
 let nameIdx = 0, captainNo = 1;
 for (const cfg of ORGS) {
   const orgId = await qInsert('INSERT INTO organizations (name, slug) VALUES (?, ?)', [cfg.name, cfg.slug]);
   await addUser(cfg.adminEmail, 'admin123', cfg.name + ' Yöneticisi', 'admin', orgId, null);
+  if (cfg.extraAdmin) await addUser(cfg.extraAdmin, 'admin123', cfg.name + ' Yardımcı Yönetici', 'admin', orgId, null);
   await addUser(cfg.scorerEmail, 'hakem123', cfg.name + ' Masa Görevlisi', 'scorekeeper', orgId, null);
 
   for (const seasonDef of [
@@ -89,8 +91,8 @@ for (const cfg of ORGS) {
 
 console.log('Seed tamamlandı: 2 organizasyon (Marmara/voleybol, Ege/futbol), her birinde arşiv + aktif sezon');
 console.log('Girişler:');
-console.log('  Platform süper admin : admin@ncl.com / admin123');
+console.log('  Platform süper admin : admin@adminim.com / admin123');
 console.log('  Marmara admini       : marmara@ncl.com / admin123 | hakem@ncl.com / hakem123');
-console.log('  Ege admini           : ege@ncl.com / admin123    | hakem2@ncl.com / hakem123');
+console.log('  Ege adminleri        : admin@ncl.com ve ege@ncl.com / admin123 | hakem2@ncl.com / hakem123');
 console.log('  Kaptanlar (Marmara)  : kaptan1..4@ncl.com / kaptan123');
 process.exit(0);

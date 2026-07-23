@@ -100,7 +100,7 @@ publicRouter.get('/sports', ah(async (req, res) => {
 publicRouter.get('/seasons-list', ah(async (req, res) => {
   const org = await resolveOrg(req);
   res.json({ seasons: await qAll(
-    'SELECT id, name, is_active, format FROM seasons WHERE sport = ? AND organization_id = ? ORDER BY id DESC',
+    "SELECT id, name, is_active, format FROM seasons WHERE sport = ? AND organization_id = ? AND approval_status = 'approved' ORDER BY id DESC",
     [reqSport(req), org?.id]) });
 }));
 
