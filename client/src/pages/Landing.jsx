@@ -18,7 +18,7 @@ export default function Landing() {
   return (
     <div className="landing">
       <div className="landing-hero">
-        <img src="/logos/ncl-volleyball.svg" alt="" className="landing-logo" />
+        <img src="/logos/heach8-wordmark.svg" alt="Heach8 Sports" className="landing-logo" />
         <h1>Kurumsal Turnuva Yönetim Platformu</h1>
         <p className="landing-sub">
           Şirketler arası spor turnuvalarını uçtan uca yönetin: fikstür, canlı skor,

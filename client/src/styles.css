@@ -365,3 +365,22 @@ body { overflow-x: hidden; }
   .hero-orglogo, .hero-seasonimg { height: 52px; }
   .hero-seasonsel { max-width: 100%; }
 }
+
+/* --- Heach8 platform markasi (navbar) + org secici bar --- */
+.brand-h8 { display: flex; align-items: center; padding: 2px 4px !important; }
+.brand-h8 img { height: 34px; display: block; transition: transform .15s; }
+.brand-h8:hover img { transform: scale(1.06); }
+
+.orgbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 18px;
+  padding: 12px 16px; border-radius: 12px;
+  background: linear-gradient(120deg, #141c30, #101728); border: 1px solid var(--border); }
+.orgbar-label { font-size: 11px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.orgbar-chips { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
+.orgchip { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 999px;
+  background: var(--bg3); border: 1px solid var(--border); color: var(--muted); font-size: 14px; font-weight: 700;
+  transition: all .15s; }
+.orgchip img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; background: #fff; }
+.orgchip:hover { border-color: #8b5cf6; color: var(--text); transform: translateY(-1px); }
+.orgchip.active { background: linear-gradient(120deg, #3b82f6, #8b5cf6); color: #fff; border-color: transparent;
+  box-shadow: 0 4px 14px rgba(139,92,246,.35); }
+@media (max-width: 700px) { .orgbar { gap: 8px; } .orgchip { padding: 7px 12px; font-size: 13px; } }

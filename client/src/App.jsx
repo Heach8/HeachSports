@@ -75,18 +75,9 @@ export default function App() {
           <Route path="*" element={
             <>
               <nav className="nav">
-                {orgInfo && (
-                  <NavLink to="/lig" className="orgbadge brandbadge" title={orgInfo.name}>
-                    {orgInfo.logo_path && <img src={orgInfo.logo_path} alt="" />}
-                    {orgInfo.name}
-                  </NavLink>
-                )}
-                {orgs.length > 1 && (
-                  <select className="orgselect" value={getOrgSlug()} title="Organizasyon"
-                    onChange={e => { setOrgSlug(e.target.value); window.location.reload(); }}>
-                    {orgs.map(o => <option key={o.slug} value={o.slug}>{o.name}</option>)}
-                  </select>
-                )}
+                <NavLink to="/" className="brand-h8" title="Heach8 Sports">
+                  <img src="/logos/heach8-mark.svg" alt="Heach8 Sports" />
+                </NavLink>
                 <div className="sportpills">
                   {sports.map(s => (
                     <button key={s.key} className={sport === s.key ? 'active' : ''} onClick={() => setSport(s.key)}>
@@ -113,6 +104,21 @@ export default function App() {
                 )}
               </nav>
               <div className="container">
+                {orgs.length > 1 && (
+                  <div className="orgbar">
+                    <span className="orgbar-label">Lig / Organizasyon</span>
+                    <div className="orgbar-chips">
+                      {orgs.map(o => (
+                        <button key={o.slug}
+                          className={`orgchip ${getOrgSlug() === o.slug ? 'active' : ''}`}
+                          onClick={() => { setOrgSlug(o.slug); window.location.reload(); }}>
+                          {o.logo_path && <img src={o.logo_path} alt="" />}
+                          {o.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <Routes>
                   <Route path="/lig" element={<Home />} />
                   <Route path="/puan-durumu" element={<Standings />} />

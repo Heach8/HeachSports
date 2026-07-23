@@ -62,15 +62,18 @@ Notlar:
 - Yüklenen fotoğraflar yeniden deploy'da silinir (kalıcılık için ileride Supabase Storage'a taşınabilir).
 - `server/.env` ASLA GitHub'a yüklenmemelidir — bağlantı bilgisi Render panelindeki ortam değişkeninden verilir.
 
+## Marka: Heach8 Sports
+Platform markası **Heach8 Sports**'tur (logolar: `server/logos/heach8-wordmark.svg` ve `heach8-mark.svg` — mavi/mor gradyan, dinamik "8" motifi). Tanıtım sayfasında yatay wordmark, üst menü solunda amblem kullanılır. Müşteriler (organizasyonlar) kendi logolarını ayrıca yükler; platform markası Heach8, müşteri markası organizasyon logosudur.
+
 ## Tanıtım Sayfası & Self-Servis Kayıt
-Sitenin kökü (`/`) artık bir **tanıtım sayfasıdır** (platform özellikleri + Giriş / Ücretsiz Hesap Oluştur / Ligleri Keşfet). Organizasyon public sitesi `/lig` altındadır. Şirket marka bilgileri (isim, logo, renkler) netleşince tanıtım sayfası ve üst menü ona göre güncellenecektir.
+Sitenin kökü (`/`) **Heach8 Sports tanıtım sayfasıdır** (platform özellikleri + Giriş / Ücretsiz Hesap Oluştur / Ligleri Keşfet). Organizasyon public sitesi `/lig` altındadır. Şirket marka bilgileri (isim, logo, renkler) netleşince tanıtım sayfası ve üst menü ona göre güncellenecektir.
 
 **Ücretsiz kayıt (`/kayit`):** Turnuva düzenleyenler kendileri hesap açar. Hesap türü Şirket (VKN, 10 hane) veya Bireysel (TCKN, 11 hane, algoritma doğrulamalı); ad soyad ve açık adres zorunludur. Formda iki uyarı yer alır: kaydın *turnuva düzenleyenler için* olduğu ve *sezon ücreti faturalarının bu bilgilere kesileceği* (bilgilerin hatasız olması gerektiği). Kayıt sonrası organizasyon + admin hesabı otomatik oluşur ve oturum açılır.
 
 **Marka & sezon görselleri:** Üst menüde platform yazısı yerine müşterinin logosu + adı yer alır (Yönetim > Ayarlar > Organizasyon Profili'nden yüklenir). Ana sayfa hero'sunda solda firma logosu, yanında o sezon için yüklenen sezon görseli ve sezon adı görünür (görsel yoksa yalnızca sezon adı). Her sezonun görseli Yönetim > Sezonlar'dan ayrı ayrı yüklenir. Ana sayfadaki sezon seçici ile geçmiş/aktif sezon seçilebilir; canlı maçlar, puan durumu, fikstür ve tüm bölümler seçilen sezona göre güncellenir (arşiv seçildiğinde canlı bölümler gizlenir).
 
 ## Çoklu Müşteri (Organizasyon) Mimarisi
-Platform artık **çok kiracılıdır**: her müşteri bir "organizasyon"dur ve sezonları, takımları, kullanıcıları, ayarları ve tahsilatı tamamen ayrıdır. Public sitede üst menüdeki organizasyon seçici ile müşteriler arasında geçilir (`?org=slug`). Organizasyon adminleri yalnızca kendi verilerini görür/yönetir; platform süper admini seçiciyle tüm müşterileri yönetir ve Yönetim > Organizasyonlar'dan yeni müşteri açar. Puan durumu ve fikstürde **sezon arşivi** seçicisi vardır: biten turnuvalar tablo/fikstür/şampiyonuyla görüntülenebilir.
+Platform artık **çok kiracılıdır**: her müşteri bir "organizasyon"dur ve sezonları, takımları, kullanıcıları, ayarları ve tahsilatı tamamen ayrıdır. Public sitede sayfa içindeki organizasyon seçici bar (logolu, üst menünün altında) ile müşteriler arasında geçilir (`?org=slug`). Organizasyon adminleri yalnızca kendi verilerini görür/yönetir; platform süper admini seçiciyle tüm müşterileri yönetir ve Yönetim > Organizasyonlar'dan yeni müşteri açar. Puan durumu ve fikstürde **sezon arşivi** seçicisi vardır: biten turnuvalar tablo/fikstür/şampiyonuyla görüntülenebilir.
 
 **Platform iş modeli:** Üyelik (organizasyon) ücretsizdir; **sezon açmak takım başı ücretlidir**. Süper admin, Yönetim > Platform'dan takım başı fiyatı belirler (0 = ücretsiz mod). Müşteri sezon açarken takım kontenjanı ve ödeme yöntemi seçer: **Havale/Nakit** seçilirse sezon "Onay Bekliyor" durumuna düşer ve süper admin Platform ekranından "Ödeme Alındı — Onayla" diyene kadar kullanılamaz (aktifleştirilemez, takım eklenemez); **Kredi Kartı** seçilirse ödeme sistemden alınır ve sezon anında açılır (şu an test modunda; sanal POS bilgileriyle iyzico/PayTR bağlanmaya hazır). Kontenjan aşılırsa takım eklenemez. Tüm platform ödemeleri süper adminin ödeme geçmişinde izlenir. Süper admin, Kullanıcılar ekranından başka e-postalara da süper admin yetkisi verebilir.
 
