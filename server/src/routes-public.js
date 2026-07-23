@@ -106,8 +106,7 @@ publicRouter.get('/seasons-list', ah(async (req, res) => {
 
 publicRouter.get('/season', ah(async (req, res) => {
   const sport = reqSport(req);
-  const org = await resolveOrg(req);
-  res.json({ season: await getActiveSeason(sport, org?.id), sport: sportConfigForClient(sport) });
+  res.json({ season: await pickSeason(req), sport: sportConfigForClient(sport) });
 }));
 
 publicRouter.get('/standings', ah(async (req, res) => {

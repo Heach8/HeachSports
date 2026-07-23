@@ -120,6 +120,22 @@ adminRouter.post('/seasons/:id/activate', ah(async (req, res) => {
   res.json({ ok: true });
 }));
 
+adminRouter.post('/seasons/:id/image', upload.fields([{ name: 'image', maxCount: 1 }]), ah(async (req, res) => {
+  const org = await resolveOrg(req);
+  const season = await qGet('SELECT * FROM seasons WHERE id = ? AND organization_id = ?', [req.params.id, org.id]);
+  if (!season) return res.status(404).json({ error: 'Sezon bulunamadi' });
+  const img = req.files?.image?.[0];
+  if (!img) return res.status(400).json({ error: 'Gorsel dosyasi gerekli (png/jpg)' });
+  await qRun('UPDATE seasons SET image_path = ? WHERE id = ?', ['/uploads/' + img.filename, season.id]);
+  res.json({ ok: true, image_path: '/uploads/' + img.filename });
+}));
+
+adminRouter.delete('/seasons/:id/image', ah(async (req, res) => {
+  const org = await resolveOrg(req);
+  await qRun('UPDATE seasons SET image_path = NULL WHERE id = ? AND organization_id = ?', [req.params.id, org.id]);
+  res.json({ ok: true });
+}));
+
 // --- Takimlar ---
 adminRouter.post('/teams', upload.fields([{ name: 'logo', maxCount: 1 }]), ah(async (req, res) => {
   const { name, company, season_id, sport } = req.body;

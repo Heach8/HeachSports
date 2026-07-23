@@ -75,14 +75,11 @@ export default function App() {
           <Route path="*" element={
             <>
               <nav className="nav">
-                <NavLink to="/lig" className="brand">
-                  <img className="brandlogo" src={`/logos/ncl-${sport}.svg`} alt="Platform" />
-                </NavLink>
                 {orgInfo && (
-                  <span className="orgbadge" title={orgInfo.name}>
+                  <NavLink to="/lig" className="orgbadge brandbadge" title={orgInfo.name}>
                     {orgInfo.logo_path && <img src={orgInfo.logo_path} alt="" />}
                     {orgInfo.name}
-                  </span>
+                  </NavLink>
                 )}
                 {orgs.length > 1 && (
                   <select className="orgselect" value={getOrgSlug()} title="Organizasyon"

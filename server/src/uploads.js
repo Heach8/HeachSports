@@ -22,7 +22,7 @@ export const upload = multer({
   storage,
   limits: { fileSize: 8 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (file.fieldname === 'photo' || file.fieldname === 'logo') {
+    if (file.fieldname === 'photo' || file.fieldname === 'logo' || file.fieldname === 'image') {
       return cb(null, IMAGE_TYPES.includes(file.mimetype));
     }
     if (file.fieldname === 'eligibility_doc') {

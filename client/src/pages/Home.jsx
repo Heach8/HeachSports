@@ -37,25 +37,32 @@ export default function Home() {
   const [fixtures, setFixtures] = useState([]);
   const [standings, setStandings] = useState([]);
   const [season, setSeason] = useState(null);
+  const [seasons, setSeasons] = useState([]);
+  const [seasonId, setSeasonId] = useState('');
+  const [orgInfo, setOrgInfo] = useState(null);
+  const q = seasonId ? `&season_id=${seasonId}` : '';
 
   const load = () => {
     api('/live-matches').then(d => setLive(d.matches));
-    api(`/fixtures?sport=${sport}`).then(d => setFixtures(d.matches));
-    api(`/standings?sport=${sport}`).then(d => setStandings(d.standings || []));
-    api(`/season?sport=${sport}`).then(d => setSeason(d.season));
+    api(`/fixtures?sport=${sport}${q}`).then(d => setFixtures(d.matches));
+    api(`/standings?sport=${sport}${q}`).then(d => setStandings(d.standings || []));
+    api(`/season?sport=${sport}${q}`).then(d => setSeason(d.season));
+    api(`/sports`).then(d => setOrgInfo(d.org));
   };
 
+  useEffect(() => { api(`/seasons-list?sport=${sport}`).then(d => setSeasons(d.seasons)); setSeasonId(''); }, [sport]);
   useEffect(() => {
     load();
     return subscribeLive(null, load);
-  }, [sport]);
+  }, [sport, seasonId]);
+  const isArchiveView = !!seasonId && !seasons.find(s => s.id === Number(seasonId))?.is_active;
 
   const upcoming = fixtures.filter(m => m.status === 'scheduled').slice(0, 5);
   const recent = fixtures.filter(m => m.status === 'finished').slice(-5).reverse();
 
   return (
     <>
-      {live.length > 0 && (
+      {!isArchiveView && live.length > 0 && (
         <div className="ticker">
           <div className="ticker-inner">
             {[...live, ...live].map((m, i) => (
@@ -68,14 +75,20 @@ export default function Home() {
         </div>
       )}
       <div className="hero">
-        <img className="herologo" src={`/logos/ncl-${sport}.svg`} alt="NCL" />
-        <div className="hero-divider" />
-        <div>
-          <h1 style={{ margin: 0 }}>{season ? season.name : 'NCL Kurumsal Ligleri'}</h1>
-          <p className="muted">Şirketler arası turnuva · canlı skorlar · istatistikler</p>
+        {orgInfo?.logo_path && <img className="hero-orglogo" src={orgInfo.logo_path} alt={orgInfo.name} />}
+        {(orgInfo?.logo_path && (season?.image_path || season)) && <div className="hero-divider" />}
+        {season?.image_path && <img className="hero-seasonimg" src={season.image_path} alt="" />}
+        <div style={{ flex: 1 }}>
+          <h1 style={{ margin: 0 }}>{season ? season.name : (orgInfo?.name || 'Turnuvalar')}</h1>
+          <p className="muted">{orgInfo?.name}{season ? ' · canlı skorlar · istatistikler' : ''}</p>
         </div>
+        {seasons.length > 1 && (
+          <select className="hero-seasonsel" value={seasonId} onChange={e => setSeasonId(e.target.value)}>
+            {seasons.map(s => <option key={s.id} value={s.is_active ? '' : s.id}>{s.name}{s.is_active ? ' (Aktif)' : ' (Arşiv)'}</option>)}
+          </select>
+        )}
       </div>
-      {live.length > 0 && (
+      {!isArchiveView && live.length > 0 && (
         <div className="card live-card">
           <h2 style={{ marginTop: 0 }}>🔴 Şu An Sahada</h2>
           {live.map(m => (

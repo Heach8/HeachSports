@@ -703,7 +703,10 @@ function SeasonsTab({ flash, isSuper }) {
           <tbody>
             {seasons.map(se => (
               <tr key={se.id}>
-                <td><b>{se.name}</b></td>
+                <td style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {se.image_path && <img src={se.image_path} alt="" style={{ width: 34, height: 34, borderRadius: 6, objectFit: 'cover' }} />}
+                  <b>{se.name}</b>
+                </td>
                 <td>{L[se.sport]}<div className="muted" style={{ fontSize: 11 }}>{{ league: 'Lig', groups_knockout: 'Grup+Eleme', knockout: 'Eleme' }[se.format || 'league']}</div></td>
                 <td>{se.court_size || DEFAULT_COURT[se.sport] || 6}
                   {se.sport === 'football' && <div className="muted" style={{ fontSize: 11 }}>
@@ -722,7 +725,18 @@ function SeasonsTab({ flash, isSuper }) {
                     : se.is_active ? <span className="badge approved">Aktif</span> : <span className="badge finished">Arşiv</span>}
                   {se.platform_fee ? <div className="muted" style={{ fontSize: 11 }}>{Number(se.platform_fee).toLocaleString('tr-TR')} ₺ · {se.payment_method}{se.team_quota ? ` · ${se.team_quota} takım` : ''}</div> : null}
                 </td>
-                <td style={{ textAlign: 'right' }}>
+                <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  <label className="btn sm" style={{ cursor: 'pointer' }}>
+                    {se.image_path ? '🖼 Görseli Değiştir' : '🖼 Sezon Görseli'}
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async e => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      const fd = new FormData(); fd.append('image', file);
+                      try { await api(`/admin/seasons/${se.id}/image`, { method: 'POST', body: fd }); flash('Sezon görseli yüklendi.'); load(); }
+                      catch (err) { flash(err.message, false); }
+                    }} />
+                  </label>{' '}
+                  {se.image_path && <button className="btn sm red" onClick={async () => { await api(`/admin/seasons/${se.id}/image`, { method: 'DELETE' }); flash('Görsel kaldırıldı.'); load(); }}>✕</button>}{' '}
                   {!se.is_active && se.approval_status === 'approved' && <button className="btn sm" onClick={() => activate(se.id)}>Aktifleştir</button>}
                 </td>
               </tr>

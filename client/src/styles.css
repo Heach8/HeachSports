@@ -353,3 +353,15 @@ body { overflow-x: hidden; }
 .orgbadge { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700;
   background: var(--bg3); border: 1px solid var(--border); padding: 5px 11px; border-radius: 999px; margin-right: 4px; }
 .orgbadge img { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; }
+
+/* --- Hero: org logosu + sezon gorseli + sezon secici --- */
+.hero-orglogo { height: 72px; max-width: 160px; object-fit: contain; border-radius: 12px; }
+.hero-seasonimg { height: 72px; max-width: 220px; object-fit: cover; border-radius: 12px;
+  border: 1px solid var(--border); box-shadow: 0 3px 12px rgba(0,0,0,.35); }
+.hero-seasonsel { width: auto; max-width: 240px; font-weight: 600; }
+.brandbadge { font-size: 15px !important; padding: 7px 14px !important; }
+.brandbadge img { width: 26px !important; height: 26px !important; }
+@media (max-width: 700px) {
+  .hero-orglogo, .hero-seasonimg { height: 52px; }
+  .hero-seasonsel { max-width: 100%; }
+}
