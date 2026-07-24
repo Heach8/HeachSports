@@ -25,10 +25,10 @@ export default function MatchDetail() {
     <>
       <div className="card" style={{ textAlign: 'center' }}>
         {m.status === 'live' && <span className="badge live">CANLI</span>}
-        <div className="console-score" style={{ marginTop: 10 }}>
-          <div className="team-name"><Link to={`/takim/${m.home_team_id}`}><TeamBadge name={m.home_team} logo={m.home_logo} /></Link></div>
-          <div className="sets">{scoreText}</div>
-          <div className="team-name"><Link to={`/takim/${m.away_team_id}`}><TeamBadge name={m.away_team} logo={m.away_logo} right /></Link></div>
+        <div className="matchscore">
+          <div className="ms-team home"><Link to={`/takim/${m.home_team_id}`}><TeamBadge name={m.home_team} logo={m.home_logo} /></Link></div>
+          <div className="ms-score">{scoreText}</div>
+          <div className="ms-team away"><Link to={`/takim/${m.away_team_id}`}><TeamBadge name={m.away_team} logo={m.away_logo} right /></Link></div>
         </div>
         <table style={{ maxWidth: 420, margin: '0 auto' }}>
           <thead><tr><th>{sport.periodName}</th><th className="num">{m.home_team}</th><th className="num">{m.away_team}</th></tr></thead>

@@ -20,7 +20,7 @@ export default function TeamDetail() {
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Kadro</h2>
         <table>
-          <thead><tr><th></th><th>#</th><th>Oyuncu</th><th>Mevki</th><th className="num">Boy</th><th className="num">Kilo</th></tr></thead>
+          <thead><tr><th></th><th>#</th><th>Oyuncu</th><th>Mevki</th></tr></thead>
           <tbody>
             {data.players.map(p => (
               <tr key={p.id}>
@@ -30,8 +30,6 @@ export default function TeamDetail() {
                 <td><b>{p.jersey_no}</b></td>
                 <td><Link to={`/oyuncu/${p.id}`}>{p.first_name} {p.last_name}</Link></td>
                 <td>{p.position}</td>
-                <td className="num">{p.height_cm ? p.height_cm + ' cm' : '-'}</td>
-                <td className="num">{p.weight_kg ? p.weight_kg + ' kg' : '-'}</td>
               </tr>
             ))}
           </tbody>

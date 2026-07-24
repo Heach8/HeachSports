@@ -410,6 +410,16 @@ adminRouter.put('/seasons/:id/fee', ah(async (req, res) => {
   res.json({ ok: true });
 }));
 
+adminRouter.put('/teams/:id', ah(async (req, res) => {
+  const org = await resolveOrg(req);
+  const team = await qGet(`SELECT t.* FROM teams t JOIN seasons s ON s.id = t.season_id WHERE t.id = ? AND s.organization_id = ?`, [req.params.id, org.id]);
+  if (!team) return res.status(404).json({ error: 'Takim bulunamadi' });
+  const name = String(req.body.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'Takim adi bos olamaz' });
+  await qRun('UPDATE teams SET name = ?, company = ? WHERE id = ?', [name, req.body.company ?? team.company, team.id]);
+  res.json({ ok: true });
+}));
+
 adminRouter.put('/teams/:id/billing', ah(async (req, res) => {
   const f = req.body;
   await qRun(

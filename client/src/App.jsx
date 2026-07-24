@@ -46,6 +46,8 @@ function OrgBar({ orgs }) {
   );
 }
 
+const ROLE_LABELS = { super_admin: 'Platform Yöneticisi', admin: 'Yönetici', scorekeeper: 'Masa Görevlisi', captain: 'Takım Kaptanı' };
+
 const SPORT_ICONS = { volleyball: '🏐', beach_volleyball: '🏖️', football: '⚽', basketball: '🏀' };
 
 export default function App() {
@@ -116,10 +118,14 @@ export default function App() {
                 {isScorer && <NavLink to="/konsol">Maç Konsolu</NavLink>}
                 {isAdmin && <NavLink to="/admin">Yönetim</NavLink>}
                 {user ? (
-                  <>
-                    <span className="user">{user.name}</span>
-                    <button className="btn sm" onClick={logout}>Çıkış</button>
-                  </>
+                  <span className="userchip">
+                    <span className="userchip-av">{user.name?.[0]}</span>
+                    <span className="userchip-info">
+                      <span className="userchip-name">{user.name}</span>
+                      <span className="userchip-role">{ROLE_LABELS[user.role] || user.role}</span>
+                    </span>
+                    <button className="userchip-out" onClick={logout} title="Çıkış">⏻</button>
+                  </span>
                 ) : (
                   <NavLink to="/giris">Giriş</NavLink>
                 )}

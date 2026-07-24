@@ -24,8 +24,16 @@ export default function AdminPanel() {
   const flash = (text, ok = true) => { setMsg({ text, ok }); setTimeout(() => setMsg(null), 4000); };
   const tabs = user.role === 'super_admin' ? [...TABS, 'Organizasyonlar', 'Platform'] : TABS;
 
+  const [orgName, setOrgName] = useState('');
+  useEffect(() => { api('/admin/organization').then(d => setOrgName(d.organization?.name || '')); }, []);
+
   return (
     <>
+      <div className="admin-orgbanner">
+        <span className="aob-dot" />
+        Yönetilen Organizasyon: <b>{orgName || '—'}</b>
+        {user.role === 'super_admin' && <span className="aob-super">PLATFORM YÖNETİCİSİ</span>}
+      </div>
       <h1>Yönetim Paneli</h1>
       {msg && <div className={msg.ok ? 'success' : 'error'}>{msg.text}</div>}
       <div className="tabs">
@@ -86,6 +94,9 @@ function Approvals({ flash }) {
 
 function TeamsTab({ flash }) {
   const [sport, setSport] = useState('volleyball');
+  const [editId, setEditId] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editCompany, setEditCompany] = useState('');
   const [teams, setTeams] = useState([]);
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
@@ -125,8 +136,29 @@ function TeamsTab({ flash }) {
           <tbody>
             {teams.map(t => (
               <tr key={t.id}>
-                <td><b>{t.name}</b></td><td>{t.company}</td><td className="num">{t.player_count}</td>
-                <td style={{ textAlign: 'right' }}><button className="btn sm red" onClick={() => del(t.id)}>Sil</button></td>
+                <td>{editId === t.id
+                  ? <input value={editName} onChange={e => setEditName(e.target.value)} style={{ width: 160 }} />
+                  : <b>{t.name}</b>}</td>
+                <td>{editId === t.id
+                  ? <input value={editCompany} onChange={e => setEditCompany(e.target.value)} style={{ width: 160 }} placeholder="Şirket" />
+                  : t.company}</td>
+                <td className="num">{t.player_count}</td>
+                <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  {editId === t.id ? (
+                    <>
+                      <button className="btn sm green" onClick={async () => {
+                        try { await api(`/admin/teams/${t.id}`, { method: 'PUT', body: { name: editName, company: editCompany } }); flash('Takım güncellendi.'); setEditId(null); load(); }
+                        catch (err) { flash(err.message, false); }
+                      }}>Kaydet</button>{' '}
+                      <button className="btn sm" onClick={() => setEditId(null)}>Vazgeç</button>
+                    </>
+                  ) : (
+                    <>
+                      <button className="btn sm" onClick={() => { setEditId(t.id); setEditName(t.name); setEditCompany(t.company || ''); }}>Düzenle</button>{' '}
+                      <button className="btn sm red" onClick={() => del(t.id)}>Sil</button>
+                    </>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

@@ -21,7 +21,6 @@ export default function PlayerDetail() {
           <p className="muted" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {player.team_logo && <img className="teamlogo" src={player.team_logo} alt="" />}
             <Link to={`/takim/${player.team_id}`}>{player.team_name}</Link> · {player.position}
-            {player.height_cm ? ` · ${player.height_cm} cm` : ''}{player.weight_kg ? ` · ${player.weight_kg} kg` : ''}
           </p>
           {mvp_count > 0 && <p style={{ color: 'var(--accent)', marginTop: 6 }}>⭐ {mvp_count} kez maçın oyuncusu</p>}
         </div>

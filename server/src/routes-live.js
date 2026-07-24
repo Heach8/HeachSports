@@ -178,6 +178,19 @@ liveRouter.get('/:matchId/state', ah(async (req, res) => {
   res.json(state);
 }));
 
+// Maci tamamen sifirla: skor/set/istatistik/penalti silinir, 'scheduled' olur (yanlis baslatma icin)
+liveRouter.post('/:matchId/reset', scorer, ah(async (req, res) => {
+  const id = Number(req.params.matchId);
+  const match = await qGet('SELECT * FROM matches WHERE id = ?', [id]);
+  if (!match) return res.status(404).json({ error: 'Mac bulunamadi' });
+  await qRun('DELETE FROM stat_events WHERE match_id = ?', [id]);
+  await qRun('DELETE FROM match_sets WHERE match_id = ?', [id]);
+  await qRun("UPDATE matches SET status = 'scheduled', home_sets = 0, away_sets = 0, mvp_player_id = NULL, shootout_home = NULL, shootout_away = NULL WHERE id = ?", [id]);
+  const state = await getMatchState(id);
+  broadcast(id, state);
+  res.json(state);
+}));
+
 liveRouter.post('/:matchId/start', scorer, ah(async (req, res) => {
   const id = Number(req.params.matchId);
   const match = await qGet('SELECT * FROM matches WHERE id = ?', [id]);
