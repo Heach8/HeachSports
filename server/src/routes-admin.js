@@ -86,22 +86,23 @@ adminRouter.post('/seasons', ah(async (req, res) => {
   // Platform ucreti: sezon acmak takim basi ucretlidir (super admin haric)
   const unitPrice = Number(await getSetting('platform_team_price', '0')) || 0;
   const quota = Math.max(2, Math.min(64, Number(req.body.team_quota) || 0));
-  let approval = 'approved', payMethod = null, platformFee = 0;
-  if (!isSuper && unitPrice > 0) {
+  const chargeable = !isSuper && unitPrice > 0;
+  let approval = 'approved', payMethod = null, platformFee = 0, savedQuota = null;
+  if (chargeable) {
     if (!req.body.team_quota) return res.status(400).json({ error: 'Takim sayisi (kontenjan) secilmeli' });
     payMethod = ['havale', 'nakit', 'kart'].includes(req.body.payment_method) ? req.body.payment_method : null;
     if (!payMethod) return res.status(400).json({ error: 'Odeme yontemi secilmeli (havale/nakit/kart)' });
+    savedQuota = quota;
     platformFee = unitPrice * quota;
-    // Kart: odeme sistemden alinir, sezon aninda kullanilabilir.
-    // (POS entegrasyonuna hazir: simdilik test modunda odeme basarili kabul edilir)
+    // Kart: odeme sistemden alinir, sezon aninda kullanilabilir (POS entegrasyonuna hazir - test modu).
     // Havale/Nakit: super admin onayina duser.
     approval = payMethod === 'kart' ? 'approved' : 'pending';
   }
 
   const id = await qInsert(
     'INSERT INTO seasons (organization_id, name, sport, court_size, yellow_limit, red_ban, foul_limit, period_count, two_legged, entry_fee, format, group_count, advance_count, group_matches, approval_status, payment_method, team_quota, platform_fee, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)',
-    [org.id, name, sport, cs, yl, rb, fl, pc, tl, fee, format, gc, ac, gm, approval, payMethod, req.body.team_quota ? quota : null, platformFee || null]);
-  if (!isSuper && unitPrice > 0) {
+    [org.id, name, sport, cs, yl, rb, fl, pc, tl, fee, format, gc, ac, gm, approval, payMethod, savedQuota, platformFee || null]);
+  if (chargeable) {
     await qInsert(
       'INSERT INTO platform_payments (organization_id, season_id, amount, method, status, note) VALUES (?, ?, ?, ?, ?, ?)',
       [org.id, id, platformFee, payMethod, payMethod === 'kart' ? 'paid' : 'pending',

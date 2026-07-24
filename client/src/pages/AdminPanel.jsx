@@ -569,7 +569,7 @@ function SeasonsTab({ flash, isSuper }) {
   const [cardModal, setCardModal] = useState(null);
   const load = () => api('/admin/seasons').then(d => setSeasons(d.seasons));
   useEffect(() => { load(); api('/admin/platform-price').then(d => setUnitPrice(d.platform_team_price)); }, []);
-  const seasonBody = () => ({ name, sport, court_size: Number(courtSize), yellow_limit: sport === 'football' ? Number(yellowLimit) : 0, red_ban: sport === 'football' ? redBan : false, format, group_count: Number(groupCount), advance_count: Number(advanceCount), group_matches: Number(groupMatches) || 0, foul_limit: sport === 'basketball' ? Number(foulLimit) : 0, period_count: sport === 'basketball' ? Number(periodCount) : null, two_legged: format !== 'league' && twoLegged, entry_fee: entryFee ? Number(entryFee) : 0, team_quota: Number(teamQuota), payment_method: payMethod });
+  const seasonBody = () => ({ name, sport, court_size: Number(courtSize), yellow_limit: sport === 'football' ? Number(yellowLimit) : 0, red_ban: sport === 'football' ? redBan : false, format, group_count: Number(groupCount), advance_count: Number(advanceCount), group_matches: Number(groupMatches) || 0, foul_limit: sport === 'basketball' ? Number(foulLimit) : 0, period_count: sport === 'basketball' ? Number(periodCount) : null, two_legged: format !== 'league' && twoLegged, entry_fee: entryFee ? Number(entryFee) : 0, team_quota: (!isSuper && unitPrice > 0) ? Number(teamQuota) : null, payment_method: payMethod });
   const submitSeason = async (body) => {
     const d = await api('/admin/seasons', { method: 'POST', body });
     if (d.approval_status === 'pending') flash('Sezon oluşturuldu — ödeme (havale/nakit) sonrası süper admin onayıyla kullanıma açılacak.');
