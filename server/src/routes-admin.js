@@ -467,8 +467,9 @@ adminRouter.get('/organization', ah(async (req, res) => {
 adminRouter.put('/organization', ah(async (req, res) => {
   const org = await resolveOrg(req);
   const b = req.body;
-  await qRun('UPDATE organizations SET name = ?, contact_name = ?, address = ?, tax_id = ? WHERE id = ?',
-    [String(b.name || org.name).trim(), b.contact_name ?? org.contact_name, b.address ?? org.address, b.tax_id ?? org.tax_id, org.id]);
+  await qRun('UPDATE organizations SET name = ?, contact_name = ?, contact_email = ?, contact_phone = ?, tax_office = ?, address = ?, tax_id = ? WHERE id = ?',
+    [String(b.name || org.name).trim(), b.contact_name ?? org.contact_name, b.contact_email ?? org.contact_email,
+     b.contact_phone ?? org.contact_phone, b.tax_office ?? org.tax_office, b.address ?? org.address, b.tax_id ?? org.tax_id, org.id]);
   res.json({ ok: true });
 }));
 

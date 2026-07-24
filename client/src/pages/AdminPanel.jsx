@@ -520,7 +520,14 @@ function SettingsTab({ flash }) {
         <div className="formrow">
           <div><label>Organizasyon Adı</label><input value={org.name || ''} onChange={e => setOrg({ ...org, name: e.target.value })} /></div>
           <div><label>Yetkili Ad Soyad</label><input value={org.contact_name || ''} onChange={e => setOrg({ ...org, contact_name: e.target.value })} /></div>
+        </div>
+        <div className="formrow">
+          <div><label>Yetkili E-posta</label><input type="email" value={org.contact_email || ''} onChange={e => setOrg({ ...org, contact_email: e.target.value })} placeholder="fatura@ornek.com" /></div>
+          <div><label>Yetkili Telefon</label><input value={org.contact_phone || ''} onChange={e => setOrg({ ...org, contact_phone: e.target.value })} placeholder="05xx xxx xx xx" /></div>
+        </div>
+        <div className="formrow">
           <div><label>{org.account_type === 'company' ? 'VKN' : 'TCKN/VKN'}</label><input value={org.tax_id || ''} onChange={e => setOrg({ ...org, tax_id: e.target.value })} /></div>
+          <div><label>Vergi Dairesi</label><input value={org.tax_office || ''} onChange={e => setOrg({ ...org, tax_office: e.target.value })} placeholder="örn. Çankaya" /></div>
         </div>
         <label>Fatura Adresi</label>
         <input value={org.address || ''} onChange={e => setOrg({ ...org, address: e.target.value })} />
@@ -684,9 +691,8 @@ function SeasonsTab({ flash, isSuper }) {
           {!isSuper && unitPrice > 0 && (
             <>
               <div><label>Takım Sayısı (kontenjan) *</label>
-                <select value={teamQuota} onChange={e => setTeamQuota(e.target.value)}>
-                  {[2, 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32].map(n => <option key={n} value={n}>{n} takım</option>)}
-                </select>
+                <input type="number" min="2" max="64" value={teamQuota}
+                  onChange={e => setTeamQuota(e.target.value)} placeholder="2 - 64" />
               </div>
               <div><label>Sezon Ücreti Ödemesi</label>
                 <select value={payMethod} onChange={e => setPayMethod(e.target.value)}>
